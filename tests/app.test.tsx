@@ -424,3 +424,61 @@ describe('the tree', () => {
     app.unmount()
   })
 })
+
+describe('overlays do not shift the view', () => {
+  /** Everything visible before the dialog must still be visible during it. */
+  const header = (frame: string) => frame.split('\n')[0] ?? ''
+
+  it('keeps the solution header on screen while confirming a removal', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, ENTER, 'j', 'j', 'j', 'j')
+    const before = header(app.lastFrame() ?? '')
+    expect(before).toContain('Demo.sln')
+
+    await press(app, 'd')
+    await settle(60)
+    const during = app.lastFrame() ?? ''
+    expect(during).toMatch(/Remove .* from the project/i)
+    expect(header(during)).toBe(before)
+    app.unmount()
+  })
+
+  it('keeps the header while a prompt is open', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, ENTER, 'a')
+    await settle(60)
+    expect(header(app.lastFrame() ?? '')).toContain('Demo.sln')
+    app.unmount()
+  })
+
+  it('keeps the header while the filter picker is open', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, ENTER, 'j', 'j', 'j', 'j', 'm')
+    await settle(60)
+    expect(app.lastFrame()).toContain('Move')
+    expect(header(app.lastFrame() ?? '')).toContain('Demo.sln')
+    app.unmount()
+  })
+
+  it('keeps the header while the help overlay is open', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, '?')
+    await settle(60)
+    expect(header(app.lastFrame() ?? '')).toContain('Demo.sln')
+    app.unmount()
+  })
+
+  it('never grows past the terminal height', async () => {
+    const { app } = open()
+    await settle()
+    const plain = (app.lastFrame() ?? '').split('\n').length
+    await press(app, ENTER, 'j', 'j', 'j', 'j', 'd')
+    await settle(60)
+    expect((app.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(plain)
+    app.unmount()
+  })
+})

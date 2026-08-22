@@ -12,11 +12,19 @@ Anything more elaborate is still a job for Visual Studio or a text editor.
 
 ```
 npm install
-npm run build
+npm run bundle
 ```
 
-Runs on Node 20+. Windows is the target platform (that is where msbuild lives);
-it runs on macOS and Linux too, minus the build commands.
+That produces **`dist/setui.js`**: one self-contained file with no `node_modules`
+beside it. Copy it anywhere and run it:
+
+```
+node setui.js
+```
+
+On Unix it is directly executable (`chmod +x setui.js && ./setui.js`). Node 20+.
+Windows is the target platform (that is where msbuild lives); it runs on macOS and
+Linux too, minus the build commands.
 
 ## Use
 
@@ -31,9 +39,13 @@ On first run it writes `~/.setui.json`:
 ```json
 {
   "msbuild": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
-  "editor": "code -w"
+  "editor": "code -w",
+  "logLines": 15
 }
 ```
+
+`logLines` is how much build output stays on screen (default 15, clamped to 3-60);
+`o` opens the whole log full-screen regardless.
 
 Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
 inside setui to open the file in your editor.
@@ -76,8 +88,9 @@ R                 reload from disk                ?  q  help / quit
 ## Development
 
 ```
-npm test          # unit tests plus corpus round-trip tests
+npm test          # unit tests, corpus round-trip tests, and a bundle smoke test
 npm run typecheck
+npm run bundle    # dist/setui.js
 ```
 
 `sample-projects/Windows-driver-samples` is a read-only corpus of 136 solutions and

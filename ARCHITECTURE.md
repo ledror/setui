@@ -138,6 +138,23 @@ as having no filters on a case-sensitive filesystem.
 - **Every removal is confirmed** — including ones that only edit the project file
   and leave the source on disk. A stray keypress must never cost someone work.
 
+## Distribution
+
+`npm run bundle` (see `build.mjs`) produces a single `dist/setui.js` that runs under
+a bare `node`, with no `node_modules` beside it. Two details make that work: the
+output is ESM but several dependencies are CommonJS and `require()` Node builtins at
+load time, so the banner installs a `createRequire` shim; and Ink imports the
+optional `react-devtools-core` unconditionally, so the bundle aliases it to a stub
+rather than shipping it. A test copies the bundle outside the repo and runs it,
+which is what actually proves it is self-contained — module resolution follows the
+file, not the working directory.
+
+## Layout
+
+The whole app must fit the terminal exactly. Overlays (prompt, select, confirm,
+help) are laid out below the tree, so their height is subtracted from the tree's;
+otherwise opening a dialog pushes the header off the top and the view jumps.
+
 ## No persistence
 
 `setui` is stateless between runs. It remembers nothing except what is in

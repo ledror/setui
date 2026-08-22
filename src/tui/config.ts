@@ -7,13 +7,19 @@ export interface Config {
   msbuild: string
   /** Command used to open files; may include arguments, e.g. "code -w". */
   editor: string
+  /** Lines of build output kept on screen. `o` opens the whole log full-screen. */
+  logLines: number
 }
+
+export const DEFAULT_LOG_LINES = 15
+const MIN_LOG_LINES = 3
+const MAX_LOG_LINES = 60
 
 export const CONFIG_PATH = join(homedir(), '.setui.json')
 
 const defaultEditor = () => process.env['VISUAL'] ?? process.env['EDITOR'] ?? (platform() === 'win32' ? 'notepad' : 'vim')
 
-const blank = (): Config => ({ msbuild: '', editor: defaultEditor() })
+const blank = (): Config => ({ msbuild: '', editor: defaultEditor(), logLines: DEFAULT_LOG_LINES })
 
 /**
  * Reads `~/.setui.json`, creating it with empty values on first run. Invalid JSON is
@@ -42,5 +48,12 @@ export async function loadConfig(path = CONFIG_PATH): Promise<Config> {
   return {
     msbuild: typeof record.msbuild === 'string' ? record.msbuild : '',
     editor: typeof record.editor === 'string' && record.editor ? record.editor : defaultEditor(),
+    logLines: clampLines(record.logLines),
   }
+}
+
+/** Out-of-range values are clamped rather than rejected: it is only a pane height. */
+function clampLines(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_LOG_LINES
+  return Math.max(MIN_LOG_LINES, Math.min(MAX_LOG_LINES, Math.round(value)))
 }

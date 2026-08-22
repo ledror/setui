@@ -8,13 +8,14 @@ import type { BuildTarget } from '../core/build.js'
 import { openProject, type Project } from '../core/project.js'
 import { parseSln, type SlnDocument } from '../core/sln.js'
 import { startBuild, type RunningBuild } from './build.js'
-import { CONFIG_PATH, loadConfig, type Config } from './config.js'
+import { CONFIG_PATH, DEFAULT_LOG_LINES, loadConfig, type Config } from './config.js'
 import { findSolutions } from './discover.js'
 import { GLYPH, iconFor } from './icons.js'
 import { edit, forRender, start } from './textInput.js'
 import { buildRows, isExpandable, windowOf, type Row } from './tree.js'
 
 const ACCENT = 'cyan'
+const SELECT_ROWS = 12
 const CHEVRON_OPEN = '▾'
 const CHEVRON_CLOSED = '▸'
 
@@ -117,7 +118,7 @@ function SelectList({
     setState((previous) => edit(previous, input, { ...key, upArrow: false, downArrow: false }))
   })
 
-  const height = 12
+  const height = SELECT_ROWS
   const top = useWindow(shown.length, height, Math.min(cursor, Math.max(0, shown.length - 1)))
   return (
     <Box borderStyle="round" borderColor={ACCENT} flexDirection="column" paddingX={1}>
@@ -171,6 +172,20 @@ const HELP: [string, string][] = [
   ['esc', 'clear search, or cancel a build'],
   ['? q', 'help / quit'],
 ]
+
+/** Rows an overlay occupies, so the tree can give up exactly that much room. */
+function overlayHeight(overlay: Overlay | null): number {
+  if (!overlay) return 0
+  switch (overlay.type) {
+    case 'prompt':
+    case 'confirm':
+      return 3 // one line inside a round border
+    case 'select':
+      return Math.min(overlay.items.length, SELECT_ROWS) + 4 // border, title, filter
+    case 'help':
+      return HELP.length + 2
+  }
+}
 
 function Confirm({
   message,
@@ -309,8 +324,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const current = rows[Math.min(cursor, rows.length - 1)]
   const project = current ? projects.get(current.guid) : undefined
 
-  const paneHeight = building !== null || log.length > 0 ? 8 : 0
-  const treeHeight = Math.max(3, termRows - 3 - paneHeight)
+  const paneHeight = building !== null || log.length > 0 ? (config?.logLines ?? DEFAULT_LOG_LINES) + 2 : 0
+  const treeHeight = Math.max(3, termRows - 3 - paneHeight - overlayHeight(overlay))
   const top = useWindow(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)))
 
   const loadProject = useCallback(
