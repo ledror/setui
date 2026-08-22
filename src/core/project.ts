@@ -82,7 +82,13 @@ class Doc {
     }
   }
 
-  /** Applies splices against the current text and reparses. */
+  /**
+   * Applies splices against the current text and reparses.
+   *
+   * ponytail: reparses the whole file per mutation instead of tracking offsets
+   * across a batch. Project files are tens of kilobytes and edits are keystrokes;
+   * batch the splices if a mutation ever shows up in a profile.
+   */
   edit(splices: Splice[]): void {
     if (splices.length === 0) return
     this.text = applySplices(this.text, splices)

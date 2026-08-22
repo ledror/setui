@@ -51,6 +51,16 @@ Two hand-written parsers, both stateless (one input string, one output tree). Ne
 follows imports, property inheritance, `Condition` evaluation, or any other MSBuild
 semantics. They parse the file in front of them and nothing else.
 
+Both were validated against the sample corpus, which taught two things worth
+keeping:
+
+- Most Visual Studio-written `.sln` files begin with a **blank line before the
+  header**, so the header is "the first non-empty line", not line 1.
+- Item element names **cannot be whitelisted**. The corpus alone uses 21 of them
+  (`FilesToPackage`, `OtherWpp`, `Wmimofck`, `MASM`, `Ctrpp`...). Anything in an
+  `ItemGroup` with an `Include` is treated as a file; non-file items are
+  blacklisted instead.
+
 1. **XML CST** (`src/core/xml.ts`) — shared by `.vcxproj` and `.vcxproj.filters`.
    Just enough XML for MSBuild files: declaration, elements, attributes, text,
    comments. No DTD, no namespace resolution, no CDATA handling beyond passthrough.
@@ -77,6 +87,12 @@ the files that actually changed.
 
 If a project has no `.filters` file, filter operations **fail**. We do not synthesize
 a `.filters` file from scratch.
+
+Every mutation verb has an inverse test asserting byte-identity, run over both
+fixtures and the whole corpus. One exception, deliberate: moving a file out of a
+filter deletes its `.filters` entry entirely (what Visual Studio writes), so moving
+it back re-appends rather than restoring its old position. Entry order carries no
+meaning; that guarantee is semantic, and byte-stable from the second round trip on.
 
 ## Virtual paths and building
 
