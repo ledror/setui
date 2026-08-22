@@ -39,3 +39,38 @@ export function startBuild(
     },
   }
 }
+
+/**
+ * Wraps build output into terminal-width rows.
+ *
+ * The log views window by row index, so wrapping has to happen here rather than
+ * being left to Ink: a line that occupies three rows on screen has to count as
+ * three, or scrolling and the pane's fixed height both go wrong. Truncating
+ * instead — which is what it used to do — simply hid the end of long lines, and
+ * msbuild lines are mostly long paths.
+ *
+ * ponytail: re-wraps the whole log whenever it grows. Memoised at the call site;
+ * make it incremental if a very long build ever feels sluggish.
+ */
+export function wrapLines(lines: string[], width: number): string[] {
+  const limit = Math.max(1, Math.floor(width))
+  const out: string[] = []
+  for (const line of lines) {
+    if (line.length <= limit) {
+      out.push(line)
+      continue
+    }
+    let rest = line
+    while (rest.length > limit) {
+      // Prefer a break at whitespace, but never lose characters to an over-long
+      // word (a path with no spaces is the common case).
+      const window = rest.slice(0, limit + 1)
+      const at = window.lastIndexOf(' ')
+      const cut = at > 0 ? at : limit
+      out.push(rest.slice(0, cut).trimEnd())
+      rest = rest.slice(at > 0 ? cut + 1 : cut)
+    }
+    if (rest) out.push(rest)
+  }
+  return out
+}

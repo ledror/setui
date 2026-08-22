@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuildTarget } from '../core/build.js'
 import { openProject, type Project } from '../core/project.js'
 import { parseSln, type SlnDocument } from '../core/sln.js'
-import { startBuild, type RunningBuild } from './build.js'
+import { startBuild, wrapLines, type RunningBuild } from './build.js'
 import { CONFIG_PATH, DEFAULT_LOG_LINES, loadConfig, type Config } from './config.js'
 import { findSolutions } from './discover.js'
 import { GLYPH, iconFor } from './icons.js'
@@ -259,7 +259,7 @@ function TreeRow({ row, selected, open }: { row: Row; selected: boolean; open: b
 
 export function App({ start, configPath }: { start: string; configPath?: string }) {
   const { exit } = useApp()
-  const { rows: termRows } = useTerminalSize()
+  const { rows: termRows, columns: termColumns } = useTerminalSize()
 
   const [config, setConfig] = useState<Config | null>(null)
   const [solutions, setSolutions] = useState<string[] | null>(null)
@@ -278,6 +278,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const [log, setLog] = useState<string[]>([])
   const [logOpen, setLogOpen] = useState(false)
   const [logScroll, setLogScroll] = useState(0)
+  /** While true the full-screen log stays pinned to the newest output. */
+  const [logFollow, setLogFollow] = useState(true)
   const [building, setBuilding] = useState<string | null>(null)
   const running = useRef<RunningBuild | null>(null)
   /** Set when the user kills a build, so its exit is not reported as a failure. */
@@ -326,9 +328,19 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const current = rows[Math.min(cursor, rows.length - 1)]
   const project = current ? projects.get(current.guid) : undefined
 
+  const paneWidth = Math.max(20, termColumns - 2) // inside the pane's border
+  const paneRows = useMemo(() => wrapLines(log, paneWidth), [log, paneWidth])
+  const fullRows = useMemo(() => wrapLines(log, termColumns), [log, termColumns])
+  const logHeight = Math.max(1, termRows - 2)
+  const maxLogScroll = Math.max(0, fullRows.length - logHeight)
+
   const paneHeight = building !== null || log.length > 0 ? (config?.logLines ?? DEFAULT_LOG_LINES) + 2 : 0
   const treeHeight = Math.max(3, termRows - 3 - paneHeight - overlayHeight(overlay))
   const top = useWindow(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)))
+
+  useEffect(() => {
+    if (logOpen && logFollow) setLogScroll(maxLogScroll)
+  }, [logOpen, logFollow, maxLogScroll])
 
   const loadProject = useCallback(
     async (guid: string) => {
@@ -459,16 +471,21 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       if (logOpen) {
         // ponytail: keyboard scrolling only. Mouse wheel needs terminal mouse
         // tracking and an SGR parser; add it if reading logs by keyboard grates.
-        const page = Math.max(1, termRows - 4)
-        if (input === 'o' || key.escape || input === 'q') return setLogOpen(false)
-        if (key.downArrow || input === 'j') return setLogScroll((s) => Math.min(s + 1, Math.max(0, log.length - 1)))
-        if (key.upArrow || input === 'k') return setLogScroll((s) => Math.max(s - 1, 0))
-        if (key.pageDown || (key.ctrl && input === 'd')) {
-          return setLogScroll((s) => Math.min(s + page, Math.max(0, log.length - 1)))
+        const page = Math.max(1, logHeight - 1)
+        // Scrolling up detaches from the tail; getting back to the bottom re-attaches,
+        // so a build you are watching keeps streaming with no extra keypress.
+        const scrollTo = (next: number) => {
+          const at = Math.max(0, Math.min(next, maxLogScroll))
+          setLogScroll(at)
+          setLogFollow(at >= maxLogScroll)
         }
-        if (key.pageUp || (key.ctrl && input === 'u')) return setLogScroll((s) => Math.max(s - page, 0))
-        if (input === 'G') return setLogScroll(Math.max(0, log.length - page))
-        if (input === 'g') return setLogScroll(0)
+        if (input === 'o' || key.escape || input === 'q') return setLogOpen(false)
+        if (key.downArrow || input === 'j') return scrollTo(logScroll + 1)
+        if (key.upArrow || input === 'k') return scrollTo(logScroll - 1)
+        if (key.pageDown || (key.ctrl && input === 'd')) return scrollTo(logScroll + page)
+        if (key.pageUp || (key.ctrl && input === 'u')) return scrollTo(logScroll - page)
+        if (input === 'G') return scrollTo(maxLogScroll)
+        if (input === 'g') return scrollTo(0)
         return
       }
 
@@ -505,7 +522,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         return exit()
       }
       if (input === 'o') {
-        setLogScroll(Math.max(0, log.length - (termRows - 4)))
+        setLogFollow(true)
+        setLogScroll(maxLogScroll)
         return setLogOpen(true)
       }
       if (key.escape) {
@@ -769,16 +787,13 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   }
 
   if (logOpen) {
-    const height = Math.max(1, termRows - 2)
     return (
       <Box flexDirection="column">
         <Text backgroundColor={ACCENT} color="black">
-          {` build log - ${log.length} lines - o or esc to close `}
+          {` build log - ${log.length} lines - ${logFollow ? 'following' : 'G to follow'} - o or esc to close `}
         </Text>
-        {log.slice(logScroll, logScroll + height).map((line, i) => (
-          <Text key={`${logScroll + i}`} wrap="truncate-end">
-            {line}
-          </Text>
+        {fullRows.slice(logScroll, logScroll + logHeight).map((line, i) => (
+          <Text key={`${logScroll + i}`}>{line || ' '}</Text>
         ))}
       </Box>
     )
@@ -809,10 +824,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
 
       {paneHeight > 0 ? (
         <Box flexDirection="column" height={paneHeight} borderStyle="single" borderColor="gray">
-          {log.slice(-(paneHeight - 2)).map((line, i) => (
-            <Text key={`log-${i}`} wrap="truncate-end">
-              {line}
-            </Text>
+          {paneRows.slice(-(paneHeight - 2)).map((line, i) => (
+            <Text key={`log-${i}`}>{line || ' '}</Text>
           ))}
         </Box>
       ) : null}

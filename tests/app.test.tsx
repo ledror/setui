@@ -65,6 +65,16 @@ async function press(app: { stdin: { write: (s: string) => void } }, ...keys: st
   }
 }
 
+/** Polls until `check` passes, so timing-sensitive tests are not flaky. */
+async function waitFor(check: () => boolean, timeout = 8000) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    if (check()) return
+    await settle(50)
+  }
+  throw new Error('timed out waiting for the condition')
+}
+
 const ENTER = '\r'
 const LEFT = '\u001B[D'
 const ESC = '\u001B'
@@ -598,6 +608,143 @@ onUnix('running a build', () => {
     await settle(200)
     expect(app.lastFrame()).toContain('Demo.sln')
     expect((app.lastFrame() ?? '').split('\n').length).toBe((before ?? '').split('\n').length)
+    app.unmount()
+  }, 20_000)
+})
+
+const UP = '\u001B[A'
+
+onUnix('the build output view', () => {
+  /** A fake msbuild that prints `count` numbered long lines, then waits. */
+  function chattyMsbuild(dir: string, count: number, linger: boolean) {
+    const script = join(dir, 'chatty.sh')
+    writeFileSync(
+      script,
+      [
+        '#!/bin/sh',
+        `i=1; while [ $i -le ${count} ]; do`,
+        '  echo "LINE$i C:/a/long/path/that/keeps/going/and/going/and/going/and/going/file$i.cpp"',
+        '  i=$((i+1))',
+        'done',
+        linger ? 'exec sleep 30' : 'exit 0',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    return script
+  }
+
+  const startBuildIn = async (count: number, linger = false) => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-log-'))
+    const s = scenario({ msbuild: chattyMsbuild(dir, count, linger) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(700)
+    return app
+  }
+
+  it('wraps long lines instead of cutting them off', async () => {
+    const app = await startBuildIn(2)
+    await press(app, 'o')
+    await settle(120)
+    const frame = app.lastFrame() ?? ''
+    // The tail of a long path is only visible if the line wrapped.
+    expect(frame).toContain('file1.cpp')
+    expect(frame).toContain('LINE1')
+    app.unmount()
+  }, 20_000)
+
+  it('wraps in the small pane too', async () => {
+    const app = await startBuildIn(1)
+    expect(app.lastFrame()).toContain('file1.cpp')
+    app.unmount()
+  }, 20_000)
+
+  it('opens the full log pinned to the newest output', async () => {
+    const app = await startBuildIn(200)
+    await press(app, 'o')
+    await settle(150)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('LINE200')
+    expect(frame).toContain('following')
+    expect(frame).not.toContain('LINE1 ')
+    app.unmount()
+  }, 20_000)
+
+  it('follows new output while it arrives, with no keypress', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-log-'))
+    const script = join(dir, 'slow.sh')
+    writeFileSync(
+      script,
+      ['#!/bin/sh', 'i=1', 'while [ $i -le 60 ]; do echo "TICK$i"; i=$((i+1)); sleep 0.05; done', ''].join('\n'),
+      { mode: 0o755 },
+    )
+    const s = scenario({ msbuild: script })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(200)
+    await press(app, 'o')
+    await settle(300)
+    const early = app.lastFrame() ?? ''
+
+    // No keypresses from here on: the view must keep up on its own.
+    await waitFor(() => (app.lastFrame() ?? '').includes('TICK60'))
+    const later = app.lastFrame() ?? ''
+    expect(later).not.toBe(early)
+    expect(later).toContain('following')
+    // The log is longer than the screen by now, so this only holds if it scrolled.
+    expect(later).not.toContain('TICK1\n')
+    app.unmount()
+  }, 20_000)
+
+  it('stops following when you scroll up, and says so', async () => {
+    const app = await startBuildIn(200)
+    await press(app, 'o')
+    await settle(120)
+    await press(app, UP, UP, UP)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('G to follow')
+    expect(frame).not.toContain('LINE200')
+    app.unmount()
+  }, 20_000)
+
+  it('follows again once you return to the bottom with G', async () => {
+    const app = await startBuildIn(200)
+    await press(app, 'o')
+    await settle(120)
+    await press(app, UP, UP, UP)
+    expect(app.lastFrame()).toContain('G to follow')
+    await press(app, 'G')
+    await settle(120)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('following')
+    expect(frame).toContain('LINE200')
+    app.unmount()
+  }, 20_000)
+
+  it('follows again once you scroll back down to the end', async () => {
+    const app = await startBuildIn(200)
+    await press(app, 'o')
+    await settle(120)
+    await press(app, UP, UP)
+    expect(app.lastFrame()).toContain('G to follow')
+    await press(app, 'j', 'j')
+    await settle(120)
+    expect(app.lastFrame()).toContain('following')
+    app.unmount()
+  }, 20_000)
+
+  it('g goes to the very start of the log', async () => {
+    const app = await startBuildIn(200)
+    await press(app, 'o')
+    await settle(120)
+    await press(app, 'g')
+    await settle(120)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('LINE1 ')
+    expect(frame).toContain('G to follow')
     app.unmount()
   }, 20_000)
 })

@@ -156,6 +156,18 @@ rather than shipping it. A test copies the bundle outside the repo and runs it,
 which is what actually proves it is self-contained — module resolution follows the
 file, not the working directory.
 
+## Build output
+
+Output is wrapped to the terminal width by `wrapLines` before either view renders
+it, rather than being left to Ink. Both views window by row index, so a line that
+occupies three rows on screen has to count as three or the scrolling and the pane's
+fixed height go wrong. Truncating instead would hide the end of long lines, and
+msbuild lines are mostly long paths.
+
+The full-screen log follows the newest output until the user scrolls up, and
+re-attaches when they get back to the bottom — by `G`, or just by scrolling down to
+the end. The header says which mode it is in.
+
 ## Layout
 
 The whole app must fit the terminal exactly. Overlays (prompt, select, confirm,
