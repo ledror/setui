@@ -12,7 +12,6 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/cli.tsx",
     "bundle": "node build.mjs",

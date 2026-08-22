@@ -8,10 +8,11 @@ complex project surgery.
 ## Layering
 
 ```
-src/core/   pure library. No Ink, no React, no process spawning, no fs writes
-            beyond the three project-file types. Imports nothing from src/tui.
-src/tui/    Ink app. Owns all disk side effects (mkdir, create, rename, delete),
-            process spawning, and config.
+src/core/   pure library. No Ink, no React, no process spawning, and no filesystem
+            writes beyond the two files a project owns (.vcxproj and its
+            .vcxproj.filters). Imports nothing from src/tui.
+src/tui/    Ink app. Owns every disk side effect (mkdir, create, rename, delete),
+            every spawn, and the config file.
 ```
 
 The core boundary is a directory rule, not a package boundary. It is enforced by
@@ -51,25 +52,29 @@ Two hand-written parsers, both stateless (one input string, one output tree). Ne
 follows imports, property inheritance, `Condition` evaluation, or any other MSBuild
 semantics. They parse the file in front of them and nothing else.
 
-Both were validated against the sample corpus, which taught two things worth
-keeping:
-
-- Most Visual Studio-written `.sln` files begin with a **blank line before the
-  header**, so the header is "the first non-empty line", not line 1.
-- Item element names **cannot be whitelisted**. The corpus alone uses 21 of them
-  (`FilesToPackage`, `OtherWpp`, `Wmimofck`, `MASM`, `Ctrpp`...). Anything in an
-  `ItemGroup` with an `Include` is treated as a file; non-file items are
-  blacklisted instead.
-
 1. **XML CST** (`src/core/xml.ts`) — shared by `.vcxproj` and `.vcxproj.filters`.
    Just enough XML for MSBuild files: declaration, elements, attributes, text,
    comments. No DTD, no namespace resolution, no CDATA handling beyond passthrough.
 2. **SLN CST** (`src/core/sln.ts`) — line-oriented. `Project(...)`/`EndProject`
    blocks and `GlobalSection(...)`/`EndGlobalSection` blocks.
 
+Both tile their source completely: every byte belongs to exactly one node. That is
+what the round-trip tests actually assert, and it is what makes splicing safe — a
+parser that silently skipped something it did not understand would corrupt files.
+
 Unparseable input **throws** a typed error with byte offset and line/column. There is
 no partial parse: splicing a partially-understood CST is how project files get
 destroyed.
+
+Two things the sample corpus taught, both of which cost a test run to find:
+
+- Most Visual Studio-written `.sln` files begin with a **blank line before the
+  header**, so the header is "the first non-empty line", not line 1. 132 of 136
+  failed until that was handled.
+- Item element names **cannot be whitelisted**. The corpus alone uses 21 of them
+  (`FilesToPackage`, `OtherWpp`, `Wmimofck`, `MASM`, `Ctrpp`...). Anything in an
+  `ItemGroup` with an `Include` is treated as a file; non-file items are
+  blacklisted instead.
 
 ## What counts as a file
 
@@ -101,8 +106,14 @@ A file exists twice: as an item in `.vcxproj` and as an entry in `.vcxproj.filte
 `moveToFilter`, `renameFilter`, …). Callers never see two files. `save()` writes only
 the files that actually changed.
 
-If a project has no `.filters` file, filter operations **fail**. We do not synthesize
-a `.filters` file from scratch.
+The filters file is located **case-insensitively**. Windows filenames are, and real
+projects rely on it: 239 of the 253 filters files in the sample corpus are
+spelled `.vcxproj.Filters` with a capital F. Matching exactly treated almost all of them as
+having no filters on a case-sensitive filesystem — which also silently narrowed the
+corpus mutation tests to the two dozen that happened to match.
+
+If a project has no `.filters` file at all, filter operations **fail**. We do not
+synthesize one from scratch.
 
 Every mutation verb has an inverse test asserting byte-identity, run over both
 fixtures and the whole corpus. One exception, deliberate: moving a file out of a
@@ -122,7 +133,7 @@ SolutionFolder1\SolutionFolder2\ProjectName
 Command line (spawned with an argv array, never a shell string):
 
 ```
-<msbuild> <sln> /t:<VirtualPath>[:Rebuild|:Clean] /p:Configuration=<c> /p:Platform=<p> /m /nologo
+<msbuild> <sln> /t:<VirtualPath>[:Rebuild|:Clean] /p:Configuration=<c> /p:Platform=<p> /m /nologo [msbuildArgs...]
 ```
 
 Build takes **no target suffix**: msbuild rejects the explicit `Project:Build` form,
@@ -145,10 +156,6 @@ The child is watched with `exit` rather than `close`. A killed `msbuild /m` can 
 worker processes holding the output pipe open, and waiting for the streams to end
 would strand the UI mid-build.
 
-Filters files are located **case-insensitively**. Windows filenames are, and real
-projects rely on it: 239 of the 265 projects in the sample corpus spell the file
-`.vcxproj.Filters` with a capital F. Matching exactly would treat almost all of them
-as having no filters on a case-sensitive filesystem.
 
 ## Safety
 
@@ -189,7 +196,12 @@ otherwise opening a dialog pushes the header off the top and the view jumps.
 
 ## No persistence
 
-`setui` is stateless between runs. It remembers nothing except what is in
-`~/.setui.json` (msbuild path, editor). Default configuration is chosen by sorting
-configurations and platforms and picking the first containing `debug` / `x64`
-(case-insensitive), falling back to the first entry.
+`setui` is stateless between runs: no cache, no session file, nothing written beside
+the user's sources. The only state is `~/.setui.json` — `msbuild`, `editor`,
+`logLines`, `msbuildArgs` — and it is never written by setui after it is created
+empty on first run.
+
+Which configuration a solution opens with is therefore derived, not remembered: sort
+the configurations and platforms, take the first containing `debug` and the first
+containing `x64` (case-insensitive), falling back to the first entry. Sorting first
+is what makes the choice stable across runs.

@@ -29,10 +29,12 @@ Linux too, minus the build commands.
 ## Use
 
 ```
-setui                # search for solutions under the current directory
-setui path/to/dir    # search under a directory
-setui path/to/x.sln  # open a solution directly
+node setui.js                # search for solutions under the current directory
+node setui.js path/to/dir    # search under a directory
+node setui.js path/to/x.sln  # open a solution directly
 ```
+
+(`setui ...` if you put it on your PATH, or `npm link` from a checkout.)
 
 On first run it writes `~/.setui.json`:
 
@@ -44,6 +46,9 @@ On first run it writes `~/.setui.json`:
   "msbuildArgs": "/v:m /nodeReuse:false"
 }
 ```
+
+Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
+inside setui to open the config in your editor, and `R` to reload.
 
 `logLines` is how much build output stays on screen (default 15, clamped to 3-60);
 `o` opens the whole log full-screen regardless.
@@ -65,9 +70,6 @@ One thing to watch: putting `/p:Configuration=...` or `/p:Platform=...` in there
 silently defeats the `p` picker — the header will say one thing while msbuild builds
 another. setui does not police this. Every build logs the exact command it ran as
 its first line, so you can always see what was passed.
-
-Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
-inside setui to open the file in your editor.
 
 A nerd font is assumed, for the file-type icons.
 
@@ -96,6 +98,11 @@ e                 open a file, or the .vcxproj itself on a project
 R                 reload from disk                ?  q  help / quit
 ```
 
+Inside the full-screen build log (`o`): `j k` and the arrows scroll, `ctrl+u ctrl+d`
+and `PgUp PgDn` page, `g G` jump to the start and end. It follows new output as it
+arrives until you scroll up, and starts following again when you get back to the
+bottom; the header says which it is doing.
+
 ## What it will not do
 
 - **Write `.sln` files.** Adding a project to a solution means GUID allocation and
@@ -104,6 +111,11 @@ R                 reload from disk                ?  q  help / quit
   action changes nothing semantically, the file is byte-identical afterwards.
 - **Create a `.vcxproj.filters` file.** Filter operations fail on a project that has
   none, rather than inventing one.
+- **Show or edit items that are not plain file paths.** Wildcards and MSBuild
+  expressions (`$(TargetPath)`, `@(ClSourceFiles)`) are build inputs and outputs, not
+  sources, and are hidden — as Visual Studio hides them. Files named by a
+  semicolon-separated `Include` are shown but not editable, since changing one would
+  mean rewriting a list. `e` on a project opens the `.vcxproj` for those cases.
 
 ## Development
 
