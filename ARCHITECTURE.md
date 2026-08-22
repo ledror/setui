@@ -122,8 +122,15 @@ SolutionFolder1\SolutionFolder2\ProjectName
 Command line (spawned with an argv array, never a shell string):
 
 ```
-<msbuild> <sln> /t:<VirtualPath>:<Build|Rebuild|Clean> /p:Configuration=<c> /p:Platform=<p> /m /nologo
+<msbuild> <sln> /t:<VirtualPath>[:Rebuild|:Clean] /p:Configuration=<c> /p:Platform=<p> /m /nologo
 ```
+
+Build takes **no target suffix**: msbuild rejects the explicit `Project:Build` form,
+while `Project:Rebuild` and `Project:Clean` are required.
+
+The child is watched with `exit` rather than `close`. A killed `msbuild /m` can leave
+worker processes holding the output pipe open, and waiting for the streams to end
+would strand the UI mid-build.
 
 Filters files are located **case-insensitively**. Windows filenames are, and real
 projects rely on it: 239 of the 265 projects in the sample corpus spell the file

@@ -25,10 +25,22 @@ describe('buildArgs', () => {
     expect(buildArgs(base)[0]).toBe(base.solutionPath)
   })
 
-  it('supports every target', () => {
-    for (const target of ['Build', 'Rebuild', 'Clean'] as const) {
+  it('names the target explicitly for Rebuild and Clean', () => {
+    for (const target of ['Rebuild', 'Clean'] as const) {
       expect(buildArgs({ ...base, target })).toContain(`/t:Drivers\\Sample:${target}`)
     }
+  })
+
+  it('passes no target suffix for a plain Build', () => {
+    // msbuild rejects the explicit `Project:Build` form; Build is the default.
+    const args = buildArgs({ ...base, target: 'Build' })
+    expect(args).toContain('/t:Drivers\\Sample')
+    expect(args.some((a) => a.endsWith(':Build'))).toBe(false)
+  })
+
+  it('still builds the right project when the name contains a dot', () => {
+    const args = buildArgs({ ...base, virtualPath: 'Folder\\My_Lib', target: 'Build' })
+    expect(args).toContain('/t:Folder\\My_Lib')
   })
 
   it('rejects a forward-slashed virtual path', () => {

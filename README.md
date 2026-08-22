@@ -70,7 +70,8 @@ r                 rename a file or a filter
 m                 move a file to another filter
 b B c             build / rebuild / clean
 p                 pick Configuration|Platform
-o                 toggle the full build log       esc   clear search / cancel build
+o                 toggle the full build log
+esc               cancel the build, then hide its output, then clear search
 e                 open a file, or the .vcxproj itself on a project
 ,                 open ~/.setui.json
 R                 reload from disk                ?  q  help / quit

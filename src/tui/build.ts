@@ -24,7 +24,9 @@ export function startBuild(
     onOutput(`${e.message}\n`)
     onExit(null)
   })
-  child.on('close', onExit)
+  // 'exit', not 'close': a killed msbuild /m can leave workers holding the output
+  // pipe open, and waiting for the streams to end would strand the UI mid-build.
+  child.on('exit', onExit)
   return {
     child,
     kill: () => {

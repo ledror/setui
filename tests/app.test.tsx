@@ -16,7 +16,7 @@ const ZETA = '{22222222-2222-2222-2222-222222222222}'
  * is a node one-liner that touches `<file>.opened`, which is how these tests observe
  * what `e` would have opened.
  */
-function scenario() {
+function scenario(opts: { msbuild?: string } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'setui-app-'))
   writeFileSync(join(dir, 'Demo.vcxproj'), VCXPROJ_FULL, 'utf8')
   writeFileSync(join(dir, 'Demo.vcxproj.filters'), FILTERS, 'utf8')
@@ -47,7 +47,7 @@ function scenario() {
   writeFileSync(
     configPath,
     JSON.stringify({
-      msbuild: '',
+      msbuild: opts.msbuild ?? '',
       editor: `node -e require('fs').writeFileSync(process.argv[1]+'.opened','x')`,
     }),
     'utf8',
@@ -67,6 +67,7 @@ async function press(app: { stdin: { write: (s: string) => void } }, ...keys: st
 
 const ENTER = '\r'
 const LEFT = '\u001B[D'
+const ESC = '\u001B'
 
 const open = (extra: Partial<{ start: string }> = {}) => {
   const s = scenario()
@@ -481,4 +482,122 @@ describe('overlays do not shift the view', () => {
     expect((app.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(plain)
     app.unmount()
   })
+})
+
+/**
+ * A stand-in for msbuild, which does not exist on this machine. It records the
+ * argument vector it was handed, prints a couple of lines, and optionally hangs
+ * around so it can be killed. This is the only test that runs `startBuild` for real.
+ */
+function fakeMsbuild(dir: string, { linger }: { linger: boolean }) {
+  const script = join(dir, 'fake-msbuild.sh')
+  writeFileSync(
+    script,
+    [
+      '#!/bin/sh',
+      `printf '%s\\n' "$@" > "${join(dir, 'argv.txt')}"`,
+      'echo "Microsoft (R) Build Engine"',
+      'echo "  Demo.vcxproj -> Demo.dll"',
+      linger ? 'exec sleep 30' : 'exit 0',
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+  return script
+}
+
+const onUnix = process.platform === 'win32' ? describe.skip : describe
+
+onUnix('running a build', () => {
+  it('passes no :Build suffix for a plain build', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(600)
+
+    const argv = readFileSync(join(dir, 'argv.txt'), 'utf8').split('\n').filter(Boolean)
+    expect(argv[0]).toBe(s.sln)
+    expect(argv).toContain('/t:Demo')
+    expect(argv.some((a) => a.endsWith(':Build'))).toBe(false)
+    expect(argv).toContain('/p:Configuration=Debug')
+    expect(argv).toContain('/p:Platform=x64')
+    expect(argv).toContain('/m')
+    app.unmount()
+  }, 20_000)
+
+  it('names the target for a rebuild', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'B')
+    await settle(600)
+    expect(readFileSync(join(dir, 'argv.txt'), 'utf8')).toContain('/t:Demo:Rebuild')
+    app.unmount()
+  }, 20_000)
+
+  it('streams the output into the pane and reports success', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(600)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('Demo.vcxproj -> Demo.dll')
+    expect(frame).toMatch(/succeeded/i)
+    app.unmount()
+  }, 20_000)
+
+  it('escape cancels the build first, and hides the output only on the second press', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: true }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(600)
+    expect(app.lastFrame()).toContain('Build Engine')
+
+    await press(app, ESC)
+    await settle(400)
+    expect(app.lastFrame()).toMatch(/cancelled/i)
+    // The output is still there to read after the build stops.
+    expect(app.lastFrame()).toContain('Build Engine')
+
+    await press(app, ESC)
+    await settle(200)
+    expect(app.lastFrame()).not.toContain('Build Engine')
+    app.unmount()
+  }, 20_000)
+
+  it('escape hides the output of a build that finished on its own', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(600)
+    expect(app.lastFrame()).toContain('Build Engine')
+    await press(app, ESC)
+    await settle(200)
+    expect(app.lastFrame()).not.toContain('Build Engine')
+    app.unmount()
+  }, 20_000)
+
+  it('leaves the tree alone once the output is gone', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-build-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    const before = app.lastFrame()
+    await press(app, 'b')
+    await settle(600)
+    await press(app, ESC)
+    await settle(200)
+    expect(app.lastFrame()).toContain('Demo.sln')
+    expect((app.lastFrame() ?? '').split('\n').length).toBe((before ?? '').split('\n').length)
+    app.unmount()
+  }, 20_000)
 })

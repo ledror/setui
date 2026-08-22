@@ -19,7 +19,9 @@ export function buildArgs(request: BuildRequest): string[] {
   if (virtualPath.includes('/')) throw new Error(`virtual path must use backslashes: ${virtualPath}`)
   return [
     solutionPath,
-    `/t:${virtualPath}:${target}`,
+    // Build is the default target: msbuild rejects the explicit `Project:Build`
+    // form, while `Project:Rebuild` and `Project:Clean` are required.
+    target === 'Build' ? `/t:${virtualPath}` : `/t:${virtualPath}:${target}`,
     `/p:Configuration=${configuration}`,
     `/p:Platform=${platform}`,
     '/m',

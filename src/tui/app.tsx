@@ -169,7 +169,7 @@ const HELP: [string, string][] = [
   ['e', 'open: a file, or the .vcxproj on a project'],
   [',', 'open ~/.setui.json'],
   ['R', 'reload from disk'],
-  ['esc', 'clear search, or cancel a build'],
+  ['esc', 'cancel build, then hide its output, then search'],
   ['? q', 'help / quit'],
 ]
 
@@ -280,6 +280,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const [logScroll, setLogScroll] = useState(0)
   const [building, setBuilding] = useState<string | null>(null)
   const running = useRef<RunningBuild | null>(null)
+  /** Set when the user kills a build, so its exit is not reported as a failure. */
+  const cancelled = useRef(false)
 
   const say = (text: string, error = false) => setStatus({ text, error })
   const fail = (e: unknown) => say(e instanceof Error ? e.message : String(e), true)
@@ -412,6 +414,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       (code) => {
         running.current = null
         setBuilding(null)
+        if (cancelled.current) {
+          cancelled.current = false
+          return say('build cancelled')
+        }
         say(code === 0 ? `${target} succeeded` : `${target} failed (exit ${code ?? 'killed'})`, code !== 0)
       },
     )
@@ -494,6 +500,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       if (input === '/') return setSearching(true)
       if (input === '?') return setOverlay({ type: 'help' })
       if (input === 'q') {
+        cancelled.current = true
         running.current?.kill()
         return exit()
       }
@@ -502,9 +509,17 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         return setLogOpen(true)
       }
       if (key.escape) {
+        // Escape unwinds one thing at a time: stop the build, then put the output
+        // pane away, then drop the search.
         if (running.current) {
+          cancelled.current = true
           running.current.kill()
-          return say('build cancelled')
+          return say('cancelling the build...')
+        }
+        if (log.length > 0) {
+          setLog([])
+          setLogOpen(false)
+          return say('output cleared')
         }
         if (query) return setQuery('')
         return
