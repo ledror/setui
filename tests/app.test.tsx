@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { render } from 'ink-testing-library'
 import React from 'react'
 import { describe, expect, it } from 'vitest'
@@ -16,7 +16,7 @@ const ZETA = '{22222222-2222-2222-2222-222222222222}'
  * is a node one-liner that touches `<file>.opened`, which is how these tests observe
  * what `e` would have opened.
  */
-function scenario(opts: { msbuild?: string } = {}) {
+function scenario(opts: { msbuild?: string; msbuildArgs?: string | string[] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'setui-app-'))
   writeFileSync(join(dir, 'Demo.vcxproj'), VCXPROJ_FULL, 'utf8')
   writeFileSync(join(dir, 'Demo.vcxproj.filters'), FILTERS, 'utf8')
@@ -48,6 +48,7 @@ function scenario(opts: { msbuild?: string } = {}) {
     configPath,
     JSON.stringify({
       msbuild: opts.msbuild ?? '',
+      msbuildArgs: opts.msbuildArgs ?? [],
       editor: `node -e require('fs').writeFileSync(process.argv[1]+'.opened','x')`,
     }),
     'utf8',
@@ -745,6 +746,63 @@ onUnix('the build output view', () => {
     const frame = app.lastFrame() ?? ''
     expect(frame).toContain('LINE1 ')
     expect(frame).toContain('G to follow')
+    app.unmount()
+  }, 20_000)
+})
+
+onUnix('extra msbuild arguments', () => {
+  const withArgs = async (msbuildArgs: string | string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-args-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }), msbuildArgs })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(700)
+    return { dir, app, sln: s.sln }
+  }
+
+  it('hands the configured arguments to msbuild, last', async () => {
+    const { dir, app } = await withArgs('/v:m /nodeReuse:false')
+    const argv = readFileSync(join(dir, 'argv.txt'), 'utf8').split('\n').filter(Boolean)
+    expect(argv.slice(-2)).toEqual(['/v:m', '/nodeReuse:false'])
+    app.unmount()
+  }, 20_000)
+
+  it('lets the user override a default we set', async () => {
+    const { dir, app } = await withArgs('/m:1')
+    const argv = readFileSync(join(dir, 'argv.txt'), 'utf8').split('\n').filter(Boolean)
+    expect(argv.indexOf('/m')).toBeLessThan(argv.indexOf('/m:1'))
+    app.unmount()
+  }, 20_000)
+
+  it('keeps an argument containing a space as one argument', async () => {
+    const { dir, app } = await withArgs(['/p:Banner=Hello World'])
+    const argv = readFileSync(join(dir, 'argv.txt'), 'utf8').split('\n').filter(Boolean)
+    expect(argv).toContain('/p:Banner=Hello World')
+    app.unmount()
+  }, 20_000)
+
+  it('shows the command it ran at the top of the log', async () => {
+    const { app, sln } = await withArgs('/v:m')
+    await press(app, 'o')
+    await settle(150)
+    await press(app, 'g')
+    await settle(120)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('fake-msbuild.sh')
+    expect(frame).toContain('/v:m')
+    expect(frame).toContain(basename(sln))
+    app.unmount()
+  }, 20_000)
+
+  it('shows the command even with no extra arguments', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-args-'))
+    const s = scenario({ msbuild: fakeMsbuild(dir, { linger: false }) })
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'b')
+    await settle(700)
+    expect(app.lastFrame()).toContain('/t:Demo')
     app.unmount()
   }, 20_000)
 })

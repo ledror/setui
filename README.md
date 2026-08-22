@@ -40,12 +40,31 @@ On first run it writes `~/.setui.json`:
 {
   "msbuild": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
   "editor": "code -w",
-  "logLines": 15
+  "logLines": 15,
+  "msbuildArgs": "/v:m /nodeReuse:false"
 }
 ```
 
 `logLines` is how much build output stays on screen (default 15, clamped to 3-60);
 `o` opens the whole log full-screen regardless.
+
+`msbuildArgs` is appended verbatim to every build, rebuild and clean. It is a dumb
+passthrough: nothing is inspected or validated, so anything msbuild accepts works.
+Because the arguments go **last**, they override the defaults setui passes — `/m:4`
+beats its `/m`. Either form works:
+
+```json
+"msbuildArgs": "/v:m /nodeReuse:false"
+"msbuildArgs": ["/p:Banner=Hello World", "/v:q"]
+```
+
+Use the array when a single argument has to contain a space; there are no quoting
+rules, because msbuild is spawned with an argument array and never through a shell.
+
+One thing to watch: putting `/p:Configuration=...` or `/p:Platform=...` in there
+silently defeats the `p` picker — the header will say one thing while msbuild builds
+another. setui does not police this. Every build logs the exact command it ran as
+its first line, so you can always see what was passed.
 
 Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
 inside setui to open the file in your editor.

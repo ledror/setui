@@ -18,7 +18,12 @@ describe('loadConfig', () => {
   it('reads an existing config', async () => {
     const path = temp()
     writeFileSync(path, JSON.stringify({ msbuild: 'C:\\msbuild.exe', editor: 'code -w', logLines: 20 }))
-    expect(await loadConfig(path)).toEqual({ msbuild: 'C:\\msbuild.exe', editor: 'code -w', logLines: 20 })
+    expect(await loadConfig(path)).toEqual({
+      msbuild: 'C:\\msbuild.exe',
+      editor: 'code -w',
+      logLines: 20,
+      msbuildArgs: [],
+    })
   })
 
   it('defaults the build pane to 15 lines', async () => {
@@ -44,6 +49,34 @@ describe('loadConfig', () => {
     const path = temp()
     writeFileSync(path, JSON.stringify({ msbuild: 'x' }))
     expect((await loadConfig(path)).editor).toBeTruthy()
+  })
+
+  it('has no extra msbuild arguments by default', async () => {
+    expect((await loadConfig(temp())).msbuildArgs).toEqual([])
+  })
+
+  it('splits a string of msbuild arguments on whitespace', async () => {
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuildArgs: '/v:m  /nodeReuse:false' }))
+    expect((await loadConfig(path)).msbuildArgs).toEqual(['/v:m', '/nodeReuse:false'])
+  })
+
+  it('takes an array verbatim, spaces and all', async () => {
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuildArgs: ['/p:Banner=Hello World', '/v:q'] }))
+    expect((await loadConfig(path)).msbuildArgs).toEqual(['/p:Banner=Hello World', '/v:q'])
+  })
+
+  it('ignores junk in the array rather than failing to start', async () => {
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuildArgs: ['/v:m', '', 7, null] }))
+    expect((await loadConfig(path)).msbuildArgs).toEqual(['/v:m'])
+  })
+
+  it('ignores a msbuildArgs that is neither a string nor an array', async () => {
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuildArgs: { v: 'm' } }))
+    expect((await loadConfig(path)).msbuildArgs).toEqual([])
   })
 
   it('reports invalid JSON instead of overwriting it', async () => {

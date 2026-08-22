@@ -8,6 +8,7 @@ import type { BuildTarget } from '../core/build.js'
 import { openProject, type Project } from '../core/project.js'
 import { parseSln, type SlnDocument } from '../core/sln.js'
 import { startBuild, wrapLines, type RunningBuild } from './build.js'
+import { buildArgs, commandLine } from '../core/build.js'
 import { CONFIG_PATH, DEFAULT_LOG_LINES, loadConfig, type Config } from './config.js'
 import { findSolutions } from './discover.js'
 import { GLYPH, iconFor } from './icons.js'
@@ -411,17 +412,21 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     if (!config.msbuild) return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
     const entry = solution.projects.find((p) => p.guid === current.guid)
     if (!entry || entry.isFolder) return say('select a project first')
-    setLog([])
+    const request = {
+      solutionPath,
+      virtualPath: solution.virtualPath(entry.guid),
+      target,
+      configuration,
+      platform,
+      extraArgs: config.msbuildArgs,
+    }
+    // The exact invocation heads the log, so custom msbuildArgs are visible and the
+    // whole line can be pasted into a terminal.
+    setLog([commandLine(config.msbuild, buildArgs(request))])
     setBuilding(`${target} ${entry.name}`)
     running.current = startBuild(
       config.msbuild,
-      {
-        solutionPath,
-        virtualPath: solution.virtualPath(entry.guid),
-        target,
-        configuration,
-        platform,
-      },
+      request,
       (chunk) => setLog((previous) => [...previous, ...chunk.split(/\r?\n/).filter((l) => l !== '')]),
       (code) => {
         running.current = null

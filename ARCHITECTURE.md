@@ -128,6 +128,19 @@ Command line (spawned with an argv array, never a shell string):
 Build takes **no target suffix**: msbuild rejects the explicit `Project:Build` form,
 while `Project:Rebuild` and `Project:Clean` are required.
 
+`msbuildArgs` from the config is appended **last**, verbatim. It is deliberately a
+dumb passthrough: no validation, no allow-list, no per-target or per-solution
+variants. Appending last means msbuild's last-one-wins lets the user override the
+defaults setui passes, without setui maintaining a list of which ones may be
+replaced. The cost is that `/p:Configuration=` in there defeats the configuration
+picker silently; that is documented rather than policed, because validating would
+mean tracking every msbuild switch across versions and would block exactly the
+unanticipated uses the feature exists for.
+
+Every build logs its resolved command line first, which is what makes that
+passthrough debuggable. That rendering quotes arguments for copy-paste only — the
+spawn itself passes an argv array and never goes near a shell.
+
 The child is watched with `exit` rather than `close`. A killed `msbuild /m` can leave
 worker processes holding the output pipe open, and waiting for the streams to end
 would strand the UI mid-build.
