@@ -66,6 +66,36 @@ describe('project edits over the sample corpus', () => {
     expect(damaged).toEqual([])
   })
 
+  it('never presents a wildcard, macro or item list as a plain file', async () => {
+    let computed = 0
+    let shared = 0
+    for (const path of corpusFiles('.vcxproj')) {
+      const project = await openProject(path, { newGuid: fakeGuids() })
+      for (const file of project.files) {
+        if (file.kind === 'computed') computed++
+        if (file.kind === 'shared') shared++
+        if (file.kind !== 'file') continue
+        expect(file.path, `${relative(CORPUS, path)}: ${file.path}`).not.toMatch(/[;*?]/)
+        expect(file.path).not.toContain('$(')
+      }
+    }
+    // The corpus really does contain both, so this test is not vacuous:
+    // 251 FilesToPackage Include="$(TargetPath)" and a handful of semicolon lists.
+    expect(computed).toBeGreaterThan(200)
+    expect(shared).toBeGreaterThan(0)
+  })
+
+  it('refuses to edit anything that is not a plain file', async () => {
+    for (const path of corpusFiles('.vcxproj')) {
+      const project = await openProject(path, { newGuid: fakeGuids() })
+      const odd = project.files.find((f) => f.kind !== 'file')
+      if (!odd) continue
+      const before = project.vcxprojText
+      expect(() => project.removeFile(odd.path)).toThrow()
+      expect(project.vcxprojText).toBe(before)
+    }
+  })
+
   it('leaves every file listed with a filter that exists', async () => {
     for (const path of withFilters) {
       const project = await openProject(path, { newGuid: fakeGuids() })

@@ -14,6 +14,19 @@ import { attr, childElements, parseXml, type XmlDocument, type XmlElement } from
  * files. Creating, deleting and renaming files on disk is the TUI's job.
  */
 
+/**
+ * What an item's `Include` actually denotes.
+ *
+ * - `file`     one concrete path: the only kind setui will edit.
+ * - `shared`   one path out of a semicolon-separated MSBuild item list. Shown, but
+ *              editing it would mean rewriting a list, so it is refused.
+ * - `computed` a wildcard or an unexpanded `$(...)` macro, e.g. the
+ *              `FilesToPackage Include="$(TargetPath)"` that appears 251 times in
+ *              the sample corpus. These are build inputs and outputs, not source
+ *              files; Visual Studio does not show them either.
+ */
+export type FileKind = 'file' | 'shared' | 'computed'
+
 export interface ProjectFile {
   /** Backslash-separated, relative to the project directory, exactly as written. */
   path: string
@@ -21,6 +34,7 @@ export interface ProjectFile {
   itemType: string
   /** Filter path, or null for the no-filter bucket. */
   filter: string | null
+  kind: FileKind
 }
 
 export interface ProjectFilter {
@@ -184,11 +198,19 @@ export class Project {
 
   get files(): ProjectFile[] {
     const assigned = this.filterAssignments()
-    return this.items(this.vcxproj).map(({ el, include }) => ({
-      path: include,
-      itemType: el.name,
-      filter: assigned.get(key(include)) ?? null,
-    }))
+    const out: ProjectFile[] = []
+    for (const { el, include } of this.items(this.vcxproj)) {
+      const filter = assigned.get(key(include)) ?? null
+      // An MSBuild item list is one element naming several files: split it, so the
+      // tree shows the files rather than the list.
+      const parts = include.split(';').map((s) => s.trim()).filter(Boolean)
+      const shared = parts.length > 1
+      for (const part of parts.length > 0 ? parts : [include]) {
+        const kind: FileKind = isComputed(part) ? 'computed' : shared ? 'shared' : 'file'
+        out.push({ path: part, itemType: el.name, filter, kind })
+      }
+    }
+    return out
   }
 
   get filters(): ProjectFilter[] {
@@ -224,6 +246,7 @@ export class Project {
 
   removeFile(path: string): void {
     const p = toBackslash(path)
+    this.requirePlainFile(p)
     const item = this.findItem(this.vcxproj, p)
     if (item) this.remove(this.vcxproj, item)
     if (this.filtersDoc) {
@@ -235,6 +258,7 @@ export class Project {
   renameFile(oldPath: string, newPath: string): void {
     const from = toBackslash(oldPath)
     const to = toBackslash(newPath)
+    this.requirePlainFile(from)
     const item = this.findItem(this.vcxproj, from)
     if (!item) throw new Error(`${from} is not in the project`)
     if (this.findItem(this.vcxproj, to)) throw new Error(`${to} is already in the project`)
@@ -272,6 +296,7 @@ export class Project {
     this.requireFilters()
     const doc = this.filtersDoc!
     const p = toBackslash(path)
+    this.requirePlainFile(p)
     if (filter !== null) this.requireFilterExists(filter)
 
     const entry = this.findItem(doc, p)
@@ -405,6 +430,20 @@ export class Project {
 
   // ------------------------------------------------------------ internals
 
+  /**
+   * Refuses to edit an item whose Include is not a single concrete path. The user
+   * can still fix those by hand; the TUI offers to open the .vcxproj in an editor.
+   */
+  private requirePlainFile(path: string): void {
+    const entry = this.files.find((f) => key(f.path) === key(path))
+    if (!entry || entry.kind === 'file') return
+    const why =
+      entry.kind === 'shared'
+        ? 'is one of several paths in a single Include'
+        : 'is a wildcard or an MSBuild macro, not a plain file'
+    throw new Error(`${path} ${why}; edit the .vcxproj by hand`)
+  }
+
   private requireFilters(): void {
     if (!this.filtersDoc) throw new Error(`${this.name} has no .vcxproj.filters file`)
   }
@@ -537,6 +576,9 @@ function projectGuidOf(doc: XmlDocument): string {
   }
   throw new Error('referenced project has no <ProjectGuid>')
 }
+
+/** A wildcard or an unexpanded MSBuild macro: not a path we can act on. */
+const isComputed = (include: string) => /[*?]/.test(include) || include.includes('$(')
 
 const isSelfOrDescendant = (candidate: string, ancestor: string) =>
   key(candidate) === key(ancestor) || key(candidate).startsWith(key(ancestor) + '\\')

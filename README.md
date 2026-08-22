@@ -44,9 +44,12 @@ A nerd font is assumed, for the file-type icons.
 
 ```
 j k up down       move                  h l left right   collapse / expand
-g G               top / bottom          u d PgUp PgDn    page
+g G               top / bottom          ctrl+u ctrl+d    half page
+PgUp PgDn         page
 /                 search                enter            expand, or open a file
+-  backspace      back to the solution list
 a                 add a file, creating it on disk (directories included)
+                  on References: add a project reference
 A                 add a file that already exists
 d                 remove from the project
 D                 remove from the project and delete it from disk
@@ -56,7 +59,8 @@ m                 move a file to another filter
 b B c             build / rebuild / clean
 p                 pick Configuration|Platform
 o                 toggle the full build log       esc   clear search / cancel build
-e                 open in the editor              ,     open ~/.setui.json
+e                 open a file, or the .vcxproj itself on a project
+,                 open ~/.setui.json
 R                 reload from disk                ?  q  help / quit
 ```
 

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, sep } from 'node:path'
+import { basename, dirname, join, relative, sep } from 'node:path'
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuildTarget } from '../core/build.js'
@@ -11,6 +11,7 @@ import { startBuild, type RunningBuild } from './build.js'
 import { CONFIG_PATH, loadConfig, type Config } from './config.js'
 import { findSolutions } from './discover.js'
 import { GLYPH, iconFor } from './icons.js'
+import { edit, forRender, start } from './textInput.js'
 import { buildRows, isExpandable, windowOf, type Row } from './tree.js'
 
 const ACCENT = 'cyan'
@@ -46,18 +47,19 @@ function TextPrompt({
   onSubmit: (value: string) => void
   onCancel: () => void
 }) {
-  const [value, setValue] = useState(initial)
+  const [state, setState] = useState(() => start(initial))
   useInput((input, key) => {
     if (key.escape) return onCancel()
-    if (key.return) return onSubmit(value.trim())
-    if (key.backspace || key.delete) return setValue((v) => v.slice(0, -1))
-    if (input && !key.ctrl && !key.meta) setValue((v) => v + input)
+    if (key.return) return onSubmit(state.value.trim())
+    setState((previous) => edit(previous, input, key))
   })
+  const { before, at, after } = forRender(state)
   return (
     <Box borderStyle="round" borderColor={ACCENT} paddingX={1}>
       <Text>{label} </Text>
-      <Text color={ACCENT}>{value}</Text>
-      <Text inverse> </Text>
+      <Text color={ACCENT}>{before}</Text>
+      <Text inverse>{at}</Text>
+      <Text color={ACCENT}>{after}</Text>
     </Box>
   )
 }
@@ -81,7 +83,8 @@ function SelectList({
   onCancel: () => void
 }) {
   const [cursor, setCursor] = useState(0)
-  const [query, setQuery] = useState('')
+  const [state, setState] = useState(() => start(''))
+  const query = state.value
   const shown = useMemo(
     () => (query ? items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase())) : items),
     [items, query],
@@ -95,14 +98,8 @@ function SelectList({
       if (item) onPick(item.value)
       return
     }
-    if (key.backspace || key.delete) {
-      setCursor(0)
-      return setQuery((q) => q.slice(0, -1))
-    }
-    if (input && !key.ctrl && !key.meta) {
-      setCursor(0)
-      setQuery((q) => q + input)
-    }
+    setCursor(0)
+    setState((previous) => edit(previous, input, { ...key, upArrow: false, downArrow: false }))
   })
 
   const height = 12
@@ -118,8 +115,9 @@ function SelectList({
         </Text>
       ))}
       <Text color={ACCENT}>
-        {'>'} {query}
-        <Text inverse> </Text>
+        {'>'} {forRender(state).before}
+        <Text inverse>{forRender(state).at}</Text>
+        {forRender(state).after}
       </Text>
     </Box>
   )
@@ -138,10 +136,12 @@ const HELP: [string, string][] = [
   ['h l left right', 'collapse / expand'],
   ['enter', 'expand, or open a file'],
   ['g G', 'top / bottom'],
-  ['u d PgUp PgDn', 'page'],
+  ['ctrl+u ctrl+d', 'half page up / down'],
+  ['PgUp PgDn', 'page'],
   ['/', 'search'],
-  ['a', 'add a file, creating it on disk'],
-  ['A', 'add an existing file'],
+  ['-  backspace', 'back to the solution list'],
+  ['a', 'add a file, or a reference on References'],
+  ['A', 'add a file that already exists'],
   ['d', 'remove from the project'],
   ['D', 'remove and delete from disk'],
   ['f', 'new filter'],
@@ -150,7 +150,7 @@ const HELP: [string, string][] = [
   ['b B c', 'build / rebuild / clean'],
   ['p', 'configuration | platform'],
   ['o', 'toggle the full build log'],
-  ['e', 'open in the editor'],
+  ['e', 'open: a file, or the .vcxproj on a project'],
   [',', 'open ~/.setui.json'],
   ['R', 'reload from disk'],
   ['esc', 'clear search, or cancel a build'],
@@ -221,6 +221,7 @@ function TreeRow({ row, selected, open }: { row: Row; selected: boolean; open: b
       {'  '.repeat(row.depth)}
       {chevron} <Text color={color}>{glyph}</Text> {row.label}
       {row.kind === 'project' && !row.loaded ? <Text dimColor> ...</Text> : null}
+      {row.kind === 'file' && row.readOnly ? <Text dimColor> (shared Include)</Text> : null}
     </Text>
   )
 }
@@ -337,6 +338,18 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     return undefined
   }
 
+  /** What `e` opens for a row: the file, the .vcxproj itself, or the referenced one. */
+  const editTargetFor = (row: Row | undefined): string | null => {
+    if (!row || !solution || !solutionPath) return null
+    if (row.kind === 'file' && project) return join(project.dir, toLocal(row.path))
+    if (row.kind === 'reference' && project) return join(project.dir, toLocal(row.include))
+    if (row.kind === 'project' || row.kind === 'references') {
+      const entry = solution.projects.find((p) => p.guid === row.guid)
+      return entry ? join(dirname(solutionPath), toLocal(entry.path)) : null
+    }
+    return null
+  }
+
   const openInEditor = (target: string) => {
     if (!config) return
     const [command, ...args] = config.editor.split(/\s+/)
@@ -375,6 +388,28 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     )
   }
 
+  /** Returns to the solution list, discovering one if we opened a .sln directly. */
+  const backToSolutions = () => {
+    const from = solutionPath
+    running.current?.kill()
+    setSolution(null)
+    setSolutionPath(null)
+    setProjects(new Map())
+    setExpanded(new Set())
+    setLog([])
+    setQuery('')
+    setCursor(0)
+    if (!solutions && from) {
+      void (async () => {
+        try {
+          setSolutions(await findSolutions(dirname(from)))
+        } catch (e) {
+          fail(e)
+        }
+      })()
+    }
+  }
+
   const collapse = (id: string) =>
     setExpanded((previous) => {
       const next = new Set(previous)
@@ -393,8 +428,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         if (input === 'o' || key.escape || input === 'q') return setLogOpen(false)
         if (key.downArrow || input === 'j') return setLogScroll((s) => Math.min(s + 1, Math.max(0, log.length - 1)))
         if (key.upArrow || input === 'k') return setLogScroll((s) => Math.max(s - 1, 0))
-        if (key.pageDown || input === 'd') return setLogScroll((s) => Math.min(s + page, Math.max(0, log.length - 1)))
-        if (key.pageUp || input === 'u') return setLogScroll((s) => Math.max(s - page, 0))
+        if (key.pageDown || (key.ctrl && input === 'd')) {
+          return setLogScroll((s) => Math.min(s + page, Math.max(0, log.length - 1)))
+        }
+        if (key.pageUp || (key.ctrl && input === 'u')) return setLogScroll((s) => Math.max(s - page, 0))
         if (input === 'G') return setLogScroll(Math.max(0, log.length - page))
         if (input === 'g') return setLogScroll(0)
         return
@@ -421,8 +458,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       if (key.upArrow || input === 'k') return setCursor((c) => Math.max(c - 1, 0))
       if (input === 'g') return setCursor(0)
       if (input === 'G') return setCursor(Math.max(0, rows.length - 1))
-      if (key.pageDown || input === 'd') return setCursor((c) => Math.min(c + page, rows.length - 1))
-      if (key.pageUp || input === 'u') return setCursor((c) => Math.max(c - page, 0))
+      if (key.pageDown || (key.ctrl && input === 'd')) {
+        return setCursor((c) => Math.min(c + page, rows.length - 1))
+      }
+      if (key.pageUp || (key.ctrl && input === 'u')) return setCursor((c) => Math.max(c - page, 0))
       if (input === '/') return setSearching(true)
       if (input === '?') return setOverlay({ type: 'help' })
       if (input === 'q') {
@@ -442,6 +481,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         return
       }
       if (input === ',') return openInEditor(configPath ?? CONFIG_PATH)
+      if (input === '-' || key.backspace) return backToSolutions()
       if (input === 'R') {
         if (solutionPath) void openSolution(solutionPath)
         return say('reloaded')
@@ -469,7 +509,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
 
       if (key.rightArrow || input === 'l' || key.return) {
         if (!isExpandable(current)) {
-          if (current.kind === 'file' && project) openInEditor(join(project.dir, toLocal(current.path)))
+          const target = editTargetFor(current)
+          if (target) openInEditor(target)
           return
         }
         if (current.kind === 'project') void loadProject(current.guid)
@@ -485,11 +526,33 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         return
       }
       if (input === 'e') {
-        if (current.kind === 'file' && project) return openInEditor(join(project.dir, toLocal(current.path)))
+        const target = editTargetFor(current)
+        if (target) return openInEditor(target)
         return say('nothing to open here')
       }
 
       if (!project) return say('expand the project first')
+
+      if ((input === 'a' || input === 'A') && (current.kind === 'references' || current.kind === 'reference')) {
+        const already = new Set(project.references.map((r) => r.include.toLowerCase()))
+        const candidates = solution.projects
+          .filter((p) => !p.isFolder && p.guid !== current.guid)
+          .map((p) => ({ entry: p, path: join(dirname(solutionPath ?? ''), toLocal(p.path)) }))
+          .filter(({ path }) => !already.has(relative(project.dir, path).split('/').join('\\').toLowerCase()))
+        if (candidates.length === 0) return say('every other project is already referenced')
+        return setOverlay({
+          type: 'select',
+          title: 'Add a reference to',
+          items: candidates.map(({ entry, path }) => ({ label: entry.name, value: path })),
+          pick: (value) => {
+            setOverlay(null)
+            commit(async () => {
+              await project.addReference(value)
+              say(`referenced ${basename(value, '.vcxproj')}`)
+            })
+          },
+        })
+      }
 
       if (input === 'a' || input === 'A') {
         const create = input === 'a'

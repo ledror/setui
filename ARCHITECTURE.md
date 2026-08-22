@@ -71,6 +71,22 @@ Unparseable input **throws** a typed error with byte offset and line/column. The
 no partial parse: splicing a partially-understood CST is how project files get
 destroyed.
 
+## What counts as a file
+
+An item's `Include` is not always one path, so `Project.files` classifies each entry:
+
+- `file` — one concrete path. The only kind setui will edit.
+- `shared` — one path out of a semicolon-separated MSBuild item list. Shown in the
+  tree (the user wants to see those sources) but not editable: changing one would
+  mean rewriting a list.
+- `computed` — a wildcard or an unexpanded `$(...)` macro, such as the
+  `FilesToPackage Include="$(TargetPath)"` that appears 251 times in the sample
+  corpus. These are build inputs and outputs, not source files. The TUI hides them,
+  as Visual Studio does.
+
+Every mutation verb refuses anything but `file`, with a message saying why. The
+escape hatch is `e` on a project, which opens the `.vcxproj` in the user's editor.
+
 ## Solutions are read-only
 
 `setui` never writes a `.sln` byte. Every supported feature — filters, files,

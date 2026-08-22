@@ -14,7 +14,17 @@ export type Row =
   | { kind: 'references'; id: string; depth: number; label: string; guid: string }
   | { kind: 'reference'; id: string; depth: number; label: string; guid: string; include: string }
   | { kind: 'filter'; id: string; depth: number; label: string; guid: string; path: string }
-  | { kind: 'file'; id: string; depth: number; label: string; guid: string; path: string; itemType: string }
+  | {
+      kind: 'file'
+      id: string
+      depth: number
+      label: string
+      guid: string
+      path: string
+      itemType: string
+      /** One of several paths in a single Include: shown, but not editable. */
+      readOnly: boolean
+    }
 
 /** Rows that can be opened. Files and references are leaves. */
 export const isExpandable = (row: Row) =>
@@ -103,7 +113,9 @@ function collect(input: TreeInput, query: string): Row[] {
 
   const pushFiles = (guid: string, project: Project, filter: string | null, depth: number) => {
     const files = project.files
-      .filter((f) => (f.filter ?? null) === filter)
+      // 'computed' items are wildcards and $(...) macros — build inputs and outputs
+      // rather than source files. Visual Studio does not show them either.
+      .filter((f) => f.kind !== 'computed' && (f.filter ?? null) === filter)
       .sort((a, b) => leaf(a.path).localeCompare(leaf(b.path)))
     for (const file of files) {
       rows.push({
@@ -114,6 +126,7 @@ function collect(input: TreeInput, query: string): Row[] {
         guid,
         path: file.path,
         itemType: file.itemType,
+        readOnly: file.kind !== 'file',
       })
     }
   }

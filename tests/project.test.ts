@@ -19,11 +19,11 @@ describe('reading', () => {
   it('lists files with their item type and filter', async () => {
     const { project } = await open()
     expect(project.files).toEqual([
-      { path: 'main.c', itemType: 'ClCompile', filter: 'Source Files' },
-      { path: 'util.c', itemType: 'ClCompile', filter: null },
-      { path: 'nested.c', itemType: 'ClCompile', filter: 'Source Files\\Nested' },
-      { path: 'old.c', itemType: 'ClCompile', filter: 'Source Files Old' },
-      { path: 'main.h', itemType: 'ClInclude', filter: null },
+      { path: 'main.c', itemType: 'ClCompile', filter: 'Source Files', kind: 'file' },
+      { path: 'util.c', itemType: 'ClCompile', filter: null, kind: 'file' },
+      { path: 'nested.c', itemType: 'ClCompile', filter: 'Source Files\\Nested', kind: 'file' },
+      { path: 'old.c', itemType: 'ClCompile', filter: 'Source Files Old', kind: 'file' },
+      { path: 'main.h', itemType: 'ClInclude', filter: null, kind: 'file' },
     ])
   })
 
@@ -46,6 +46,56 @@ describe('reading', () => {
     const { project } = await open({ filters: null })
     expect(project.hasFilters).toBe(false)
     expect(project.files.every((f) => f.filter === null)).toBe(true)
+  })
+})
+
+describe('Include values that are not a plain file path', () => {
+  const ODD = VCXPROJ_FULL.replace(
+    '    <ClInclude Include="main.h" />',
+    [
+      '    <ClInclude Include="main.h" />',
+      '    <FilesToPackage Include="$(TargetPath)" />',
+      '    <ClInclude Include="*.h;*.hpp;*.hxx" />',
+      '    <ClCompile Include="a.c; b.c; sub\\c.c" />',
+    ].join('\r\n'),
+  )
+
+  it('marks an MSBuild macro as computed rather than listing it as a file', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    const entry = project.files.find((f) => f.path === '$(TargetPath)')!
+    expect(entry.kind).toBe('computed')
+  })
+
+  it('marks a wildcard as computed', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    expect(project.files.find((f) => f.path.startsWith('*.h'))!.kind).toBe('computed')
+  })
+
+  it('splits a semicolon item list into the files it names', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    const shared = project.files.filter((f) => f.kind === 'shared')
+    expect(shared.map((f) => f.path)).toEqual(['a.c', 'b.c', 'sub\\c.c'])
+    expect(shared.every((f) => f.itemType === 'ClCompile')).toBe(true)
+  })
+
+  it('never reports a semicolon list as a single file', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    expect(project.files.some((f) => f.path.includes(';'))).toBe(false)
+  })
+
+  it('refuses to edit any of them, and says why', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    expect(() => project.removeFile('$(TargetPath)')).toThrow(/macro|wildcard/i)
+    expect(() => project.removeFile('a.c')).toThrow(/several paths/i)
+    expect(() => project.renameFile('a.c', 'z.c')).toThrow(/several paths/i)
+    expect(() => project.moveToFilter('a.c', 'Source Files')).toThrow(/several paths/i)
+  })
+
+  it('leaves plain files editable alongside them', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    project.removeFile('util.c')
+    expect(project.vcxprojText).not.toContain('util.c')
+    expect(project.vcxprojText).toContain('$(TargetPath)')
   })
 })
 
