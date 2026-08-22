@@ -1,5 +1,5 @@
-import { readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, relative, resolve } from 'node:path'
+import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { itemTypeFor, NON_FILE_ITEMS } from './itemTypes.js'
 import { applySplices, detectEol, lineIndent, type Splice } from './text.js'
@@ -64,9 +64,28 @@ const defaultGuid = () => `{${randomUUID().toUpperCase()}}`
 export async function openProject(vcxprojPath: string, options: OpenOptions = {}): Promise<Project> {
   const path = resolve(vcxprojPath)
   const vcxproj = await Doc.open(path)
-  const filtersPath = `${path}.filters`
-  const filters = await Doc.openIfExists(filtersPath)
+  const filters = await Doc.openIfExists(await findFiltersPath(path))
   return new Project(path, vcxproj, filters, options.newGuid ?? defaultGuid)
+}
+
+/**
+ * Finds the sibling filters file. Windows filenames are case-insensitive and real
+ * projects exploit it: 239 of the 265 in the sample corpus spell it
+ * `.vcxproj.Filters` with a capital F. Matching exactly would treat almost all of
+ * them as having no filters on a case-sensitive filesystem.
+ */
+async function findFiltersPath(vcxprojPath: string): Promise<string> {
+  const exact = `${vcxprojPath}.filters`
+  const wanted = basename(exact).toLowerCase()
+  try {
+    for (const name of await readdir(dirname(vcxprojPath))) {
+      if (name === basename(exact)) return exact
+      if (name.toLowerCase() === wanted) return join(dirname(vcxprojPath), name)
+    }
+  } catch {
+    // Unreadable directory; fall through and let the open fail the ordinary way.
+  }
+  return exact
 }
 
 /** One parsed file, its text, and the stat it had when we read it. */
@@ -577,8 +596,13 @@ function projectGuidOf(doc: XmlDocument): string {
   throw new Error('referenced project has no <ProjectGuid>')
 }
 
-/** A wildcard or an unexpanded MSBuild macro: not a path we can act on. */
-const isComputed = (include: string) => /[*?]/.test(include) || include.includes('$(')
+/**
+ * Not a path we can act on: a wildcard, or any unexpanded MSBuild expression —
+ * `$(Property)`, `@(ItemList)`, or an item transform such as
+ * `@(Inf->'%(CopyOutput)')`.
+ */
+const isComputed = (include: string) =>
+  /[*?]/.test(include) || /[$@%]\(/.test(include)
 
 const isSelfOrDescendant = (candidate: string, ancestor: string) =>
   key(candidate) === key(ancestor) || key(candidate).startsWith(key(ancestor) + '\\')

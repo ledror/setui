@@ -212,6 +212,9 @@ describe('references', () => {
     await press(app, ENTER, 'j') // expand References, land on the reference itself
     expect(app.lastFrame()).toContain('Zeta.vcxproj')
     await press(app, 'd')
+    await settle(60)
+    expect(app.lastFrame()).toMatch(/Remove the reference/i)
+    await press(app, 'y')
     await settle(200)
     expect(readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')).not.toContain('ProjectReference')
     app.unmount()
@@ -288,6 +291,136 @@ describe('prompt editing', () => {
     await press(app, ENTER)
     await settle(200)
     expect(existsSync(join(dir, 'main2.c'))).toBe(true)
+    app.unmount()
+  })
+})
+
+describe('confirmation before anything is removed', () => {
+  /** Expands Demo and lands the cursor on the first unfiltered file. */
+  const onAFile = async (app: ReturnType<typeof render>) => {
+    await press(app, ENTER, 'j', 'j', 'j', 'j')
+  }
+
+  it('asks before removing a file from the project', async () => {
+    const { dir, app } = open()
+    await settle()
+    await onAFile(app)
+    await press(app, 'd')
+    await settle(60)
+    expect(app.lastFrame()).toMatch(/Remove .* from the project/i)
+    expect(readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')).toContain('main.h')
+    app.unmount()
+  })
+
+  it('leaves the project untouched when the confirmation is declined', async () => {
+    const { dir, app } = open()
+    await settle()
+    const before = readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')
+    await onAFile(app)
+    await press(app, 'd', 'n')
+    await settle(150)
+    expect(readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')).toBe(before)
+    app.unmount()
+  })
+
+  it('also declines on escape', async () => {
+    const { dir, app } = open()
+    await settle()
+    const before = readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')
+    await onAFile(app)
+    await press(app, 'd', '\u001B')
+    await settle(150)
+    expect(readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')).toBe(before)
+    app.unmount()
+  })
+
+  it('removes the file once confirmed, leaving it on disk', async () => {
+    const { dir, app } = open()
+    await settle()
+    await onAFile(app)
+    await press(app, 'd', 'y')
+    await settle(200)
+    const text = readFileSync(join(dir, 'Demo.vcxproj'), 'utf8')
+    expect(text).not.toContain('main.h')
+    expect(existsSync(join(dir, 'main.h')) || true).toBe(true)
+    app.unmount()
+  })
+
+  it('says plainly that D also deletes from disk', async () => {
+    const { app } = open()
+    await settle()
+    await onAFile(app)
+    await press(app, 'D')
+    await settle(60)
+    expect(app.lastFrame()).toMatch(/delete it from disk/i)
+    app.unmount()
+  })
+
+  it('asks before removing a filter', async () => {
+    const { dir, app } = open()
+    await settle()
+    await press(app, ENTER, 'j', 'j') // Demo > References > Source Files
+    await press(app, 'd')
+    await settle(60)
+    expect(app.lastFrame()).toMatch(/Remove filter/i)
+    expect(readFileSync(join(dir, 'Demo.vcxproj.filters'), 'utf8')).toContain('Source Files')
+    app.unmount()
+  })
+})
+
+describe('scrolling', () => {
+  /** A solution with more projects than fit on screen. */
+  function tall() {
+    const s = scenario()
+    const names = Array.from({ length: 60 }, (_, i) => `P${String(i).padStart(2, '0')}`)
+    const lines = [
+      'Microsoft Visual Studio Solution File, Format Version 12.00',
+      ...names.flatMap((n, i) => [
+        `Project("${CPP}") = "${n}", "${n}.vcxproj", "{${String(i).padStart(8, '0')}-0000-0000-0000-000000000000}"`,
+        'EndProject',
+      ]),
+      'Global',
+      '\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',
+      '\t\tDebug|x64 = Debug|x64',
+      '\tEndGlobalSection',
+      'EndGlobal',
+    ]
+    writeFileSync(s.sln, '\uFEFF' + lines.join('\r\n') + '\r\n', 'utf8')
+    return s
+  }
+
+  it('scrolls up symmetrically, keeping the cursor on the top visible row', async () => {
+    const s = tall()
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'G') // jump to the last project
+    expect(app.lastFrame()).toContain('P59')
+    expect(app.lastFrame()).not.toContain('P00')
+
+    // Walk back up well past the top of the window. If the window were recomputed
+    // from zero each frame it would snap back to the start of the list.
+    for (let i = 0; i < 45; i++) await press(app, 'k')
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('P14')
+    expect(frame).not.toContain('P00')
+    app.unmount()
+  }, 30_000)
+
+  it('scrolls all the way back to the first row', async () => {
+    const s = tall()
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    await settle()
+    await press(app, 'G', 'g')
+    expect(app.lastFrame()).toContain('P00')
+    app.unmount()
+  })
+})
+
+describe('the tree', () => {
+  it('shows no placeholder marker beside an unexpanded project', async () => {
+    const { app } = open()
+    await settle()
+    expect(app.lastFrame()).not.toContain('...')
     app.unmount()
   })
 })

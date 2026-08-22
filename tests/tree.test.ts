@@ -49,14 +49,6 @@ describe('buildRows', () => {
     expect(labels(rows)).toEqual(['Drivers', '  Demo', 'Zeta'])
   })
 
-  it('marks projects that have not been loaded yet', async () => {
-    const { solution, projects } = await load()
-    const rows = buildRows({ solution, projects, expanded: new Set([`folder:${DIR}`]) })
-    const byLabel = Object.fromEntries(rows.map((r) => [r.label, r]))
-    expect((byLabel['Demo'] as { loaded: boolean }).loaded).toBe(true)
-    expect((byLabel['Zeta'] as { loaded: boolean }).loaded).toBe(false)
-  })
-
   it('shows References first, then filters, then unfiltered files', async () => {
     const { solution, projects } = await load()
     const rows = buildRows({

@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs'
-import { relative } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { basename, dirname, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { openProject } from '../src/core/project.js'
 import { CORPUS, corpusFiles } from './helpers/corpus.js'
@@ -11,11 +11,28 @@ import { fakeGuids } from './helpers/fixture.js'
  * untouched by design, not by luck.
  */
 
-const withFilters = corpusFiles('.vcxproj').filter((f) => existsSync(`${f}.filters`))
+/** Case-insensitive, because 239 corpus projects spell it `.vcxproj.Filters`. */
+const hasFiltersFile = (vcxproj: string) => {
+  const wanted = `${basename(vcxproj)}.filters`.toLowerCase()
+  return readdirSync(dirname(vcxproj)).some((n) => n.toLowerCase() === wanted)
+}
+
+const withFilters = corpusFiles('.vcxproj').filter(hasFiltersFile)
 
 describe('project edits over the sample corpus', () => {
   it('found projects with filters to test against', () => {
-    expect(withFilters.length).toBeGreaterThan(10)
+    // Most of the corpus has one; if this drops, the filters lookup regressed.
+    expect(withFilters.length).toBeGreaterThan(200)
+  })
+
+  it('opens the filters file whatever its casing', async () => {
+    const oddlyCased = withFilters.find((f) =>
+      readdirSync(dirname(f)).some((n) => n.endsWith('.Filters')),
+    )
+    expect(oddlyCased).toBeDefined()
+    const project = await openProject(oddlyCased!, { newGuid: fakeGuids() })
+    expect(project.hasFilters).toBe(true)
+    expect(project.filters.length).toBeGreaterThan(0)
   })
 
   it('adds and removes a file in every filter without changing the files', async () => {

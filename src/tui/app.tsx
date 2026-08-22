@@ -21,6 +21,21 @@ const CHEVRON_CLOSED = '▸'
 /** Paths inside project files hold backslashes; the local filesystem may not. */
 const toLocal = (p: string) => p.split('\\').join(sep)
 
+/**
+ * Keeps the visible window anchored: it only moves when the cursor would leave it,
+ * so scrolling up puts the cursor on the top line the same way scrolling down puts
+ * it on the bottom one. Recomputing from zero every render is what made it
+ * asymmetrical.
+ */
+function useWindow(total: number, height: number, cursor: number): number {
+  const [scrollTop, setScrollTop] = useState(0)
+  const top = windowOf(total, height, cursor, scrollTop)
+  useEffect(() => {
+    if (top !== scrollTop) setScrollTop(top)
+  }, [top, scrollTop])
+  return top
+}
+
 function useTerminalSize() {
   const { stdout } = useStdout()
   const [size, setSize] = useState({ rows: stdout.rows || 30, columns: stdout.columns || 100 })
@@ -103,7 +118,7 @@ function SelectList({
   })
 
   const height = 12
-  const top = windowOf(shown.length, height, Math.min(cursor, Math.max(0, shown.length - 1)), 0)
+  const top = useWindow(shown.length, height, Math.min(cursor, Math.max(0, shown.length - 1)))
   return (
     <Box borderStyle="round" borderColor={ACCENT} flexDirection="column" paddingX={1}>
       <Text bold>
@@ -220,7 +235,6 @@ function TreeRow({ row, selected, open }: { row: Row; selected: boolean; open: b
     <Text inverse={selected} wrap="truncate-end">
       {'  '.repeat(row.depth)}
       {chevron} <Text color={color}>{glyph}</Text> {row.label}
-      {row.kind === 'project' && !row.loaded ? <Text dimColor> ...</Text> : null}
       {row.kind === 'file' && row.readOnly ? <Text dimColor> (shared Include)</Text> : null}
     </Text>
   )
@@ -297,7 +311,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
 
   const paneHeight = building !== null || log.length > 0 ? 8 : 0
   const treeHeight = Math.max(3, termRows - 3 - paneHeight)
-  const top = windowOf(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)), 0)
+  const top = useWindow(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)))
 
   const loadProject = useCallback(
     async (guid: string) => {
@@ -656,14 +670,31 @@ export function App({ start, configPath }: { start: string; configPath?: string 
 
       if (input === 'd' || input === 'D') {
         const alsoDelete = input === 'D'
-        if (current.kind === 'reference') {
-          return commit(() => {
-            project.removeReference(current.include)
-            say('reference removed')
+        // Every removal is confirmed, including the ones that only touch the
+        // project file: a stray keypress must never cost someone their work.
+        const ask = (message: string, act: () => void) =>
+          setOverlay({
+            type: 'confirm',
+            message,
+            confirm: () => {
+              setOverlay(null)
+              act()
+            },
           })
+
+        if (current.kind === 'reference') {
+          return ask(`Remove the reference to ${current.label}?`, () =>
+            commit(() => {
+              project.removeReference(current.include)
+              say('reference removed')
+            }),
+          )
         }
         if (current.kind === 'file') {
-          const act = () =>
+          const message = alsoDelete
+            ? `Remove ${current.path} from the project AND delete it from disk?`
+            : `Remove ${current.path} from the project? (the file stays on disk)`
+          return ask(message, () =>
             commit(async () => {
               project.removeFile(current.path)
               if (alsoDelete) {
@@ -671,29 +702,16 @@ export function App({ start, configPath }: { start: string; configPath?: string 
                 if (existsSync(target)) await unlink(target)
               }
               say(alsoDelete ? `deleted ${current.path}` : `removed ${current.path}`)
-            })
-          if (!alsoDelete) return act()
-          return setOverlay({
-            type: 'confirm',
-            message: `Delete ${current.path} from disk?`,
-            confirm: () => {
-              setOverlay(null)
-              act()
-            },
-          })
+            }),
+          )
         }
         if (current.kind === 'filter') {
-          return setOverlay({
-            type: 'confirm',
-            message: `Remove filter ${current.path} and everything under it?`,
-            confirm: () => {
-              setOverlay(null)
-              commit(() => {
-                project.removeFilter(current.path, { reparentTo: null })
-                say('filter removed')
-              })
-            },
-          })
+          return ask(`Remove filter ${current.path} and everything under it?`, () =>
+            commit(() => {
+              project.removeFilter(current.path, { reparentTo: null })
+              say('filter removed')
+            }),
+          )
         }
         return say('nothing removable here')
       }

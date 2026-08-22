@@ -79,10 +79,10 @@ An item's `Include` is not always one path, so `Project.files` classifies each e
 - `shared` — one path out of a semicolon-separated MSBuild item list. Shown in the
   tree (the user wants to see those sources) but not editable: changing one would
   mean rewriting a list.
-- `computed` — a wildcard or an unexpanded `$(...)` macro, such as the
-  `FilesToPackage Include="$(TargetPath)"` that appears 251 times in the sample
-  corpus. These are build inputs and outputs, not source files. The TUI hides them,
-  as Visual Studio does.
+- `computed` — a wildcard, or any unexpanded MSBuild expression: `$(Property)`,
+  `@(ItemList)`, or an item transform like `@(Inf->'%(CopyOutput)')`. The sample
+  corpus has 251 of the first kind alone. These are build inputs and outputs, not
+  source files. The TUI hides them, as Visual Studio does.
 
 Every mutation verb refuses anything but `file`, with a message saying why. The
 escape hatch is `e` on a project, which opens the `.vcxproj` in the user's editor.
@@ -125,11 +125,18 @@ Command line (spawned with an argv array, never a shell string):
 <msbuild> <sln> /t:<VirtualPath>:<Build|Rebuild|Clean> /p:Configuration=<c> /p:Platform=<p> /m /nologo
 ```
 
+Filters files are located **case-insensitively**. Windows filenames are, and real
+projects rely on it: 239 of the 265 projects in the sample corpus spell the file
+`.vcxproj.Filters` with a capital F. Matching exactly would treat almost all of them
+as having no filters on a case-sensitive filesystem.
+
 ## Safety
 
 - Record mtime+size at open; re-stat before write and refuse on mismatch (`R` reloads).
 - Write via temp file + rename in the same directory.
-- No undo stack. These files live in git; git is the undo. Destructive keys confirm.
+- No undo stack. These files live in git; git is the undo.
+- **Every removal is confirmed** — including ones that only edit the project file
+  and leave the source on disk. A stray keypress must never cost someone work.
 
 ## No persistence
 

@@ -51,8 +51,8 @@ PgUp PgDn         page
 a                 add a file, creating it on disk (directories included)
                   on References: add a project reference
 A                 add a file that already exists
-d                 remove from the project
-D                 remove from the project and delete it from disk
+d                 remove from the project        (confirms)
+D                 remove from the project and delete it from disk (confirms)
 f                 new filter (nested filters allowed)
 r                 rename a file or a filter
 m                 move a file to another filter

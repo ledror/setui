@@ -10,7 +10,7 @@ import type { SlnDocument, SlnProject } from '../core/sln.js'
 
 export type Row =
   | { kind: 'folder'; id: string; depth: number; label: string; guid: string }
-  | { kind: 'project'; id: string; depth: number; label: string; guid: string; loaded: boolean }
+  | { kind: 'project'; id: string; depth: number; label: string; guid: string }
   | { kind: 'references'; id: string; depth: number; label: string; guid: string }
   | { kind: 'reference'; id: string; depth: number; label: string; guid: string; include: string }
   | { kind: 'filter'; id: string; depth: number; label: string; guid: string; path: string }
@@ -72,7 +72,6 @@ function collect(input: TreeInput, query: string): Row[] {
           depth,
           label: entry.name,
           guid: entry.guid,
-          loaded: project !== undefined,
         })
         if (project && isOpen(projectId(entry.guid))) walkProject(entry, project, depth + 1)
       }

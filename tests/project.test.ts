@@ -56,6 +56,8 @@ describe('Include values that are not a plain file path', () => {
       '    <ClInclude Include="main.h" />',
       '    <FilesToPackage Include="$(TargetPath)" />',
       '    <ClInclude Include="*.h;*.hpp;*.hxx" />',
+      '    <FilesToPackage Include="@(Inf-&gt;\'%(CopyOutput)\')" />',
+      '    <ClCompile Include="@(ClSourceFiles)" />',
       '    <ClCompile Include="a.c; b.c; sub\\c.c" />',
     ].join('\r\n'),
   )
@@ -69,6 +71,14 @@ describe('Include values that are not a plain file path', () => {
   it('marks a wildcard as computed', async () => {
     const { project } = await open({ vcxproj: ODD })
     expect(project.files.find((f) => f.path.startsWith('*.h'))!.kind).toBe('computed')
+  })
+
+  it('marks an item list and an item transform as computed', async () => {
+    const { project } = await open({ vcxproj: ODD })
+    expect(project.files.find((f) => f.path === '@(ClSourceFiles)')!.kind).toBe('computed')
+    const transform = project.files.find((f) => f.path.includes('CopyOutput'))!
+    expect(transform.path).toBe("@(Inf->'%(CopyOutput)')")
+    expect(transform.kind).toBe('computed')
   })
 
   it('splits a semicolon item list into the files it names', async () => {
