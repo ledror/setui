@@ -190,6 +190,19 @@ the end. The header says which mode it is in.
 
 ## Layout
 
+The app renders in the terminal's **alternate screen** (`alternateScreen` in
+`src/cli.tsx`). Without it the first frame is only as tall as the solution picker and
+the view lurches when a solution opens; with it setui owns the whole screen from the
+first frame and the user's scrollback is restored on exit. Two consequences: the
+solution picker is sized from the terminal rather than the overlays' fixed 12 rows,
+and opening `$EDITOR` goes through Ink's `suspendTerminal`, which leaves the
+alternate screen for the child and re-enters and repaints afterwards — a nested
+alternate screen is a boolean, not a stack, so a plain `spawnSync` would drop setui
+onto the primary screen when the editor exited.
+
+Rendering runs at `maxFps: 60` with `incrementalRendering`, against Ink's defaults of
+30fps and a full redraw per frame.
+
 The whole app must fit the terminal exactly. Overlays (prompt, select, confirm,
 help) are laid out below the tree, so their height is subtracted from the tree's;
 otherwise opening a dialog pushes the header off the top and the view jumps.

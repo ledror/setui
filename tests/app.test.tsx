@@ -78,6 +78,7 @@ async function waitFor(check: () => boolean, timeout = 8000) {
 
 const ENTER = '\r'
 const LEFT = '\u001B[D'
+const RIGHT = '\u001B[C'
 const ESC = '\u001B'
 
 const open = (extra: Partial<{ start: string }> = {}) => {
@@ -103,6 +104,18 @@ describe('App', () => {
     expect(frame).toContain('References')
     expect(frame).toContain('Source Files')
     expect(frame).toContain('util.c')
+    app.unmount()
+  })
+
+  it('collapses again on a second Enter, but right arrow only ever opens', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, ENTER)
+    expect(app.lastFrame() ?? '').toContain('util.c')
+    await press(app, ENTER)
+    expect(app.lastFrame() ?? '').not.toContain('util.c')
+    await press(app, RIGHT, RIGHT) // right arrow twice: open, and stay open
+    expect(app.lastFrame() ?? '').toContain('util.c')
     app.unmount()
   })
 

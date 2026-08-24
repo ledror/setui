@@ -91,11 +91,14 @@ interface Choice {
 function SelectList({
   title,
   items,
+  rows = SELECT_ROWS,
   onPick,
   onCancel,
 }: {
   title: string
   items: Choice[]
+  /** Visible rows. Overlays keep the default; the solution picker fills the screen. */
+  rows?: number
   onPick: (value: string) => void
   onCancel: () => void
 }) {
@@ -119,7 +122,7 @@ function SelectList({
     setState((previous) => edit(previous, input, { ...key, upArrow: false, downArrow: false }))
   })
 
-  const height = SELECT_ROWS
+  const height = rows
   const top = useWindow(shown.length, height, Math.min(cursor, Math.max(0, shown.length - 1)))
   return (
     <Box borderStyle="round" borderColor={ACCENT} flexDirection="column" paddingX={1}>
@@ -259,7 +262,7 @@ function TreeRow({ row, selected, open }: { row: Row; selected: boolean; open: b
 // --------------------------------------------------------------------- the app
 
 export function App({ start, configPath }: { start: string; configPath?: string }) {
-  const { exit } = useApp()
+  const { exit, suspendTerminal } = useApp()
   const { rows: termRows, columns: termColumns } = useTerminalSize()
 
   const [config, setConfig] = useState<Config | null>(null)
@@ -398,12 +401,12 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     if (!config) return
     const [command, ...args] = config.editor.split(/\s+/)
     if (!command) return say('no editor configured', true)
-    // A terminal editor needs the raw terminal to itself; spawnSync blocks Ink until
-    // it exits, which is all the suspend/resume this needs.
-    process.stdin.setRawMode?.(false)
-    spawnSync(command, [...args, target], { stdio: 'inherit' })
-    process.stdin.setRawMode?.(true)
-    touch()
+    // A terminal editor needs the raw terminal to itself. suspendTerminal drops raw
+    // mode, leaves the alternate screen for the child, and re-enters and repaints
+    // afterwards; spawnSync blocks inside it, which is all the sequencing this needs.
+    void suspendTerminal(() => {
+      spawnSync(command, [...args, target], { stdio: 'inherit' })
+    }).then(touch, fail)
   }
 
   const runBuild = (target: BuildTarget) => {
@@ -580,6 +583,9 @@ export function App({ start, configPath }: { start: string; configPath?: string 
           if (target) openInEditor(target)
           return
         }
+        // Enter toggles, so pressing it twice leaves the tree where it started.
+        // Right and `l` only ever open, the way they do in every other tree.
+        if (key.return && expanded.has(current.id)) return collapse(current.id)
         if (current.kind === 'project') void loadProject(current.guid)
         return setExpanded((previous) => new Set(previous).add(current.id))
       }
@@ -784,6 +790,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     return (
       <SelectList
         title="Solutions"
+        rows={Math.max(5, termRows - 4)} // border, title, filter line
         items={solutions.map((p) => ({ label: p.startsWith(start) ? p.slice(start.length + 1) : p, value: p }))}
         onPick={setSolutionPath}
         onCancel={exit}

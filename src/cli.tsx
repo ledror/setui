@@ -25,5 +25,13 @@ if (arg === '--help' || arg === '-h') {
 } else if (arg === '--version' || arg === '-v') {
   console.log(version)
 } else {
-  render(<App start={resolve(arg ?? process.cwd())} />)
+  render(<App start={resolve(arg ?? process.cwd())} />, {
+    // Own the whole terminal from the first frame: no growing-into-place jump when a
+    // solution opens, and the user's scrollback comes back untouched on exit.
+    alternateScreen: true,
+    // Ink's default is 30fps with a full redraw per frame; typing and scrolling both
+    // felt behind at that. Incremental rendering only rewrites the lines that changed.
+    maxFps: 60,
+    incrementalRendering: true,
+  })
 }
