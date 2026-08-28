@@ -790,7 +790,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     return (
       <SelectList
         title="Solutions"
-        rows={Math.max(5, termRows - 4)} // border, title, filter line
+        // border, title, filter line, and one row spare: a frame as tall as the
+        // terminal makes Ink repaint the whole screen every keystroke (a
+        // clearTerminal on Windows), which flickers under multiplexers.
+        rows={Math.max(5, termRows - 5)}
         items={solutions.map((p) => ({ label: p.startsWith(start) ? p.slice(start.length + 1) : p, value: p }))}
         onPick={setSolutionPath}
         onCancel={exit}

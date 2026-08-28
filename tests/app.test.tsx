@@ -818,4 +818,19 @@ onUnix('extra msbuild arguments', () => {
     expect(app.lastFrame()).toContain('/t:Demo')
     app.unmount()
   }, 20_000)
+
+  // Ink repaints the whole screen for any frame as tall as the terminal (and on
+  // Windows it does that with a clearTerminal every time), which multiplexers that
+  // ignore synchronized output show as a flicker. Every view must stay under it.
+  it('keeps the solution picker shorter than the terminal', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-picker-'))
+    for (let i = 0; i < 40; i++) writeFileSync(join(dir, `S${i}.sln`), '', 'utf8')
+    const s = scenario()
+    const app = render(<App start={dir} configPath={s.configPath} />)
+    await waitFor(() => (app.lastFrame() ?? '').includes('Solutions'))
+    const lines = (app.lastFrame() ?? '').split('\n').length
+    expect(lines).toBeGreaterThan(10) // not vacuous: the list really did fill up
+    expect(lines).toBeLessThan(30) // ink-testing-library reports no rows; App falls back to 30
+    app.unmount()
+  })
 })
