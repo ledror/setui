@@ -5,6 +5,7 @@ import { render } from 'ink-testing-library'
 import React from 'react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../src/tui/app.js'
+import { startBuild } from '../src/tui/build.js'
 import { FILTERS, VCXPROJ_FULL } from './helpers/fixture.js'
 
 const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
@@ -627,6 +628,49 @@ onUnix('running a build', () => {
 })
 
 const UP = '\u001B[A'
+
+onUnix('build output arriving', () => {
+  /** A build that writes `count` lines one at a time, so each one is its own write. */
+  function lineByLine(dir: string, count: number) {
+    const script = join(dir, 'chatty-lines.sh')
+    writeFileSync(
+      script,
+      [
+        '#!/bin/sh',
+        `exec node -e "let n=0;const t=setInterval(()=>{for(let k=0;k<20;k++){if(n>=${count}){clearInterval(t);return}process.stdout.write('LINE'+(++n)+String.fromCharCode(10))}},1)"`,
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    return script
+  }
+
+  // A repaint per chunk drove the UI at the full frame rate during a loud build,
+  // and writing to a TTY blocks the event loop when the terminal is behind, so
+  // keystrokes queued behind the output. Output is coalesced instead.
+  it('coalesces a flood of output into a few updates, losing nothing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-flood-'))
+    const chunks: string[] = []
+    let exited = false
+    startBuild(
+      lineByLine(dir, 2000),
+      { solutionPath: 'x.sln', virtualPath: 'x', target: 'Build', configuration: 'Debug', platform: 'x64' },
+      (chunk) => chunks.push(chunk),
+      () => {
+        exited = true
+      },
+    )
+    await waitFor(() => exited)
+
+    const lines = chunks.join('').split('\n').filter(Boolean)
+    expect(lines.length).toBe(2000) // nothing dropped
+    expect(lines[0]).toBe('LINE1') // and nothing reordered
+    expect(lines.at(-1)).toBe('LINE2000')
+    // 2000 writes, ~100ms of output: single digits, not hundreds.
+    expect(chunks.length).toBeLessThan(20)
+  }, 20_000)
+})
+
 
 onUnix('the build output view', () => {
   /** A fake msbuild that prints `count` numbered long lines, then waits. */

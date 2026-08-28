@@ -1,6 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { buildArgs, type BuildRequest } from '../core/build.js'
 
+/** How long output accumulates before it reaches the UI. 10 repaints a second. */
+const FLUSH_MS = 100
+
 export interface RunningBuild {
   child: ChildProcess
   kill(): void
@@ -18,15 +21,42 @@ export function startBuild(
   onExit: (code: number | null) => void,
 ): RunningBuild {
   const child = spawn(msbuild, buildArgs(request), { windowsHide: true })
-  child.stdout?.on('data', (b: Buffer) => onOutput(b.toString()))
-  child.stderr?.on('data', (b: Buffer) => onOutput(b.toString()))
+
+  // One repaint per chunk meant a loud build drove the UI at the full frame rate,
+  // and a TTY write blocks the event loop when the terminal is behind (a
+  // multiplexer, an ssh hop), so keystrokes queued up behind the output - pressing
+  // `o` took seconds to land. Output is coalesced into one update per FLUSH_MS
+  // instead: nothing is dropped, it just arrives in fewer, bigger pieces.
+  let pending = ''
+  let timer: NodeJS.Timeout | undefined
+  const flush = () => {
+    timer = undefined
+    if (pending === '') return
+    const text = pending
+    pending = ''
+    onOutput(text)
+  }
+  const push = (text: string) => {
+    pending += text
+    // unref: a pending flush must never hold the process open on its own.
+    timer ??= setTimeout(flush, FLUSH_MS).unref()
+  }
+
+  child.stdout?.on('data', (b: Buffer) => push(b.toString()))
+  child.stderr?.on('data', (b: Buffer) => push(b.toString()))
   child.on('error', (e) => {
-    onOutput(`${e.message}\n`)
+    push(`${e.message}\n`)
+    flush()
     onExit(null)
   })
   // 'exit', not 'close': a killed msbuild /m can leave workers holding the output
   // pipe open, and waiting for the streams to end would strand the UI mid-build.
-  child.on('exit', onExit)
+  child.on('exit', (code) => {
+    // The tail of the output has to land before the exit status does.
+    if (timer) clearTimeout(timer)
+    flush()
+    onExit(code)
+  })
   return {
     child,
     kill: () => {
@@ -49,8 +79,10 @@ export function startBuild(
  * instead — which is what it used to do — simply hid the end of long lines, and
  * msbuild lines are mostly long paths.
  *
- * ponytail: re-wraps the whole log whenever it grows. Memoised at the call site;
- * make it incremental if a very long build ever feels sluggish.
+ * ponytail: still re-wraps the whole log whenever it grows, but only for the
+ * full-screen view, and only ten times a second - the pane wraps just the tail it
+ * shows. Make it incremental if someone watches the full log of a build with
+ * hundreds of thousands of lines.
  */
 export function wrapLines(lines: string[], width: number): string[] {
   const limit = Math.max(1, Math.floor(width))

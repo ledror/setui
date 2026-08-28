@@ -333,7 +333,6 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const project = current ? projects.get(current.guid) : undefined
 
   const paneWidth = Math.max(20, termColumns - 2) // inside the pane's border
-  const paneRows = useMemo(() => wrapLines(log, paneWidth), [log, paneWidth])
   const fullRows = useMemo(() => wrapLines(log, termColumns), [log, termColumns])
   const logHeight = Math.max(1, termRows - 2)
   const maxLogScroll = Math.max(0, fullRows.length - logHeight)
@@ -346,6 +345,14 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const spare = Math.max(1, termRows - 4)
   const paneHeight =
     building !== null || log.length > 0 ? Math.min((config?.logLines ?? DEFAULT_LOG_LINES) + 2, spare) : 0
+  // Wrapping only the tail the pane can show keeps a 100k-line build off the hot
+  // path: wrapping is per-line, so the last rows of the whole log and the rows of
+  // the last lines are the same rows.
+  const paneLines = Math.max(1, paneHeight - 2)
+  const paneRows = useMemo(
+    () => wrapLines(log.slice(-paneLines), paneWidth),
+    [log, paneWidth, paneLines],
+  )
   const overlayRows = Math.min(overlayHeight(overlay), spare - paneHeight)
   const treeHeight = Math.max(1, termRows - 3 - paneHeight - overlayRows)
   const top = useWindow(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)))
