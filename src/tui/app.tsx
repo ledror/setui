@@ -212,11 +212,11 @@ function Confirm({
   )
 }
 
-function Help({ onClose }: { onClose: () => void }) {
+function Help({ rows = HELP.length, onClose }: { rows?: number; onClose: () => void }) {
   useInput(() => onClose())
   return (
     <Box borderStyle="round" borderColor={ACCENT} flexDirection="column" paddingX={1}>
-      {HELP.map(([keys, what]) => (
+      {HELP.slice(0, rows).map(([keys, what]) => (
         <Text key={keys}>
           <Text color={ACCENT}>{keys.padEnd(16)}</Text>
           {what}
@@ -338,8 +338,16 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const logHeight = Math.max(1, termRows - 2)
   const maxLogScroll = Math.max(0, fullRows.length - logHeight)
 
-  const paneHeight = building !== null || log.length > 0 ? (config?.logLines ?? DEFAULT_LOG_LINES) + 2 : 0
-  const treeHeight = Math.max(3, termRows - 3 - paneHeight - overlayHeight(overlay))
+  // A frame as tall as the terminal makes Ink repaint the whole screen on every
+  // keystroke - a clearTerminal on Windows - which multiplexers that ignore
+  // synchronized output show as a flicker. So the frame stays one row under the
+  // viewport: header, status and one spare row are reserved, the pane and the
+  // overlay only get what is left, and the tree takes the rest.
+  const spare = Math.max(1, termRows - 4)
+  const paneHeight =
+    building !== null || log.length > 0 ? Math.min((config?.logLines ?? DEFAULT_LOG_LINES) + 2, spare) : 0
+  const overlayRows = Math.min(overlayHeight(overlay), spare - paneHeight)
+  const treeHeight = Math.max(1, termRows - 3 - paneHeight - overlayRows)
   const top = useWindow(rows.length, treeHeight, Math.min(cursor, Math.max(0, rows.length - 1)))
 
   useEffect(() => {
@@ -793,7 +801,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         // border, title, filter line, and one row spare: a frame as tall as the
         // terminal makes Ink repaint the whole screen every keystroke (a
         // clearTerminal on Windows), which flickers under multiplexers.
-        rows={Math.max(5, termRows - 5)}
+        rows={Math.max(1, termRows - 5)}
         items={solutions.map((p) => ({ label: p.startsWith(start) ? p.slice(start.length + 1) : p, value: p }))}
         onPick={setSolutionPath}
         onCancel={exit}
@@ -870,6 +878,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         <SelectList
           title={overlay.title}
           items={overlay.items}
+          rows={Math.max(1, overlayRows - 4)}
           onPick={overlay.pick}
           onCancel={() => setOverlay(null)}
         />
@@ -877,7 +886,9 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       {overlay?.type === 'confirm' ? (
         <Confirm message={overlay.message} onConfirm={overlay.confirm} onCancel={() => setOverlay(null)} />
       ) : null}
-      {overlay?.type === 'help' ? <Help onClose={() => setOverlay(null)} /> : null}
+      {overlay?.type === 'help' ? (
+        <Help rows={Math.max(1, overlayRows - 2)} onClose={() => setOverlay(null)} />
+      ) : null}
     </Box>
   )
 }

@@ -819,9 +819,6 @@ onUnix('extra msbuild arguments', () => {
     app.unmount()
   }, 20_000)
 
-  // Ink repaints the whole screen for any frame as tall as the terminal (and on
-  // Windows it does that with a clearTerminal every time), which multiplexers that
-  // ignore synchronized output show as a flicker. Every view must stay under it.
   it('keeps the solution picker shorter than the terminal', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'setui-picker-'))
     for (let i = 0; i < 40; i++) writeFileSync(join(dir, `S${i}.sln`), '', 'utf8')
@@ -833,4 +830,71 @@ onUnix('extra msbuild arguments', () => {
     expect(lines).toBeLessThan(30) // ink-testing-library reports no rows; App falls back to 30
     app.unmount()
   })
+})
+
+// Ink repaints the whole screen for any frame that reaches the terminal height - and
+// on Windows it does that with a clearTerminal every time - which multiplexers that
+// ignore synchronized output (zellij) show as a flicker. No view may reach it, at any
+// terminal size: overlays that do not fit get clipped, they do not push the frame over.
+describe('frame height', () => {
+  /** A solution with 15 configuration|platform pairs, so `p` opens a tall overlay. */
+  function manyConfigs() {
+    const dir = mkdtempSync(join(tmpdir(), 'setui-rows-'))
+    writeFileSync(join(dir, 'Demo.vcxproj'), VCXPROJ_FULL, 'utf8')
+    writeFileSync(join(dir, 'Demo.vcxproj.filters'), FILTERS, 'utf8')
+    const pairs = ['Debug', 'Release', 'Profile', 'Ship', 'Check'].flatMap((c) =>
+      ['x64', 'Win32', 'ARM64'].map((p) => `${c}|${p}`),
+    )
+    const sln = join(dir, 'Demo.sln')
+    writeFileSync(
+      sln,
+      [
+        'Microsoft Visual Studio Solution File, Format Version 12.00',
+        `Project("${CPP}") = "Demo", "Demo.vcxproj", "${DEMO}"`,
+        'EndProject',
+        'Global',
+        '\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',
+        ...pairs.map((cp) => `\t\t${cp} = ${cp}`),
+        '\tEndGlobalSection',
+        'EndGlobal',
+      ].join('\r\n') + '\r\n',
+      'utf8',
+    )
+    return sln
+  }
+
+  const height = (app: { lastFrame: () => string | undefined }) => (app.lastFrame() ?? '').split('\n').length
+
+  for (const rows of [30, 24, 20, 16]) {
+    it(`stays under ${rows} rows in every view`, async () => {
+      const { configPath } = scenario()
+      const app = render(<App start={manyConfigs()} configPath={configPath} />)
+      // ink-testing-library reports no rows; App falls back to 30 until a resize.
+      ;(app.stdout as unknown as { rows: number }).rows = rows
+      app.stdout.emit('resize')
+      await settle()
+
+      const seen: Record<string, number> = {}
+      const check = async (name: string, ...keys: string[]) => {
+        await press(app, ...keys)
+        seen[name] = height(app)
+      }
+      await check('tree')
+      await check('expanded', ENTER)
+      await check('configuration|platform', 'p')
+      await check('filtered', 'D')
+      await check('help', ESC, '?')
+      await check('search', 'x', '/', 'u')
+      await check('prompt', ESC, 'a')
+      await check('confirm', ESC, 'j', 'd')
+
+      for (const [name, lines] of Object.entries(seen)) {
+        expect(`${name}: ${lines}`).toBe(`${name}: ${Math.min(lines, rows - 1)}`)
+      }
+      // Not vacuous: the views really do fill the terminal, they are not tiny frames.
+      expect(seen.tree).toBe(rows - 1)
+      expect(seen['configuration|platform']).toBe(rows - 1)
+      app.unmount()
+    }, 20_000)
+  }
 })
