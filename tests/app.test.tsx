@@ -6,6 +6,7 @@ import React from 'react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../src/tui/app.js'
 import { startBuild } from '../src/tui/build.js'
+import { vswhere } from '../src/tui/compileCommands.js'
 import { FILTERS, VCXPROJ_FULL } from './helpers/fixture.js'
 
 const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
@@ -566,6 +567,31 @@ function fakeMsbuild(dir: string, { linger }: { linger: boolean }) {
 }
 
 const onUnix = process.platform === 'win32' ? describe.skip : describe
+const onWindows = process.platform === 'win32' ? describe : describe.skip
+
+/** A minimal but real C++ project, for the one test that runs MSBuild for real. */
+const SOLO_VCXPROJ = `<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{11111111-1111-1111-1111-111111111111}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />
+</Project>
+`
 
 onUnix('running a build', () => {
   it('passes no :Build suffix for a plain build', async () => {
@@ -1055,5 +1081,61 @@ describe('generating compile_commands.json', () => {
       expect(frame).not.toContain('whole solution')
       app.unmount()
     })
+  })
+
+  // The whole path, for real: two overlays, a design-time build, and a database
+  // on disk. Everything above stops before MSBuild runs, so without this nothing
+  // proves the pieces are actually wired to each other.
+  onWindows('end to end', () => {
+    it('writes a database for the project under the cursor', async (ctx) => {
+      const msbuild = (
+        await vswhere('-latest', '-products', '*', '-find', 'MSBuild\\**\\Bin\\MSBuild.exe')
+      )[0]
+      // A Windows box without the C++ workload. Skip rather than return: a test
+      // that returns early reports as passed while asserting nothing.
+      if (!msbuild) return ctx.skip()
+
+      const dir = mkdtempSync(join(tmpdir(), 'setui-ccgen-'))
+      writeFileSync(join(dir, 'main.cpp'), 'int main(){return 0;}\n', 'utf8')
+      writeFileSync(join(dir, 'Solo.vcxproj'), SOLO_VCXPROJ, 'utf8')
+      const sln = join(dir, 'Solo.sln')
+      writeFileSync(
+        sln,
+        '\uFEFF' +
+          [
+            'Microsoft Visual Studio Solution File, Format Version 12.00',
+            `Project("${CPP}") = "Solo", "Solo.vcxproj", "${DEMO}"`,
+            'EndProject',
+            'Global',
+            '\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',
+            '\t\tDebug|x64 = Debug|x64',
+            '\tEndGlobalSection',
+            'EndGlobal',
+          ].join('\r\n') +
+          '\r\n',
+        'utf8',
+      )
+      const configPath = join(dir, 'config.json')
+      writeFileSync(configPath, JSON.stringify({ msbuild: { build: msbuild } }), 'utf8')
+
+      const app = render(<App start={sln} configPath={configPath} />)
+      await settle(300)
+      await press(app, 'C') // scope: this project is first, under the cursor
+      await press(app, ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('type a path...'))
+      await press(app, ENTER) // the default, beside the solution
+
+      const output = join(dir, 'compile_commands.json')
+      await waitFor(() => existsSync(output), 90_000)
+      await waitFor(() => (app.lastFrame() ?? '').includes('merged 1 project'), 30_000)
+
+      const entries = JSON.parse(readFileSync(output, 'utf8'))
+      expect(entries).toHaveLength(1)
+      expect(entries[0].file.toLowerCase()).toBe(join(dir, 'main.cpp').toLowerCase())
+      // The real compiler, not the C:\WINDOWS\system32\CL.exe MSBuild reports.
+      expect(existsSync(entries[0].arguments[0])).toBe(true)
+      expect(entries[0].arguments.at(-1)).toBe(entries[0].file)
+      app.unmount()
+    }, 180_000)
   })
 })

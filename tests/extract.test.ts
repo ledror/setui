@@ -113,27 +113,29 @@ afterAll(async () => {
 })
 
 // A Windows box without the C++ workload is a valid place to run the rest of the
-// suite, so a missing toolchain skips rather than fails.
+// suite, so a missing toolchain skips rather than fails. It has to *skip* and not
+// return: a test that returns early reports as passed while asserting nothing,
+// which looks exactly like a suite that is covering this code.
 const canRun = () => windows && msbuild !== ''
 
 describe.skipIf(!windows)('resolveToolchain', () => {
-  it('finds a cl.exe that exists on disk', () => {
-    if (!canRun()) return
+  it('finds a cl.exe that exists on disk', (ctx) => {
+    if (!canRun()) return ctx.skip()
     // MSBuild reports C:\WINDOWS\system32\CL.exe, which does not exist. This is
     // the regression test for using that path.
     expect(existsSync(toolchain.clPath)).toBe(true)
     expect(toolchain.clPath.toLowerCase()).not.toContain('system32')
   })
 
-  it('picks the target triple from the build platform', async () => {
-    if (!canRun()) return
+  it('picks the target triple from the build platform', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     expect(toolchain.target).toBe('x86_64-pc-windows-msvc')
     expect((await resolveToolchain(msbuild, 'Win32')).target).toBe('i686-pc-windows-msvc')
     expect((await resolveToolchain(msbuild, 'ARM64')).target).toBe('aarch64-pc-windows-msvc')
   }, 60_000)
 
-  it('names the version and the config key when MSBuild is too old', async () => {
-    if (!canRun()) return
+  it('names the version and the config key when MSBuild is too old', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     // A .cmd stub cannot be spawned without a shell on modern Node, so point the
     // gate at something that is not MSBuild at all and check the message shape.
     await expect(resolveToolchain(join(workspace, 'nope.exe'), 'x64')).rejects.toThrow(
@@ -143,8 +145,8 @@ describe.skipIf(!windows)('resolveToolchain', () => {
 })
 
 describe.skipIf(!windows)('extractProject', () => {
-  it('extracts per-file flags from a real design-time build', async () => {
-    if (!canRun()) return
+  it('extracts per-file flags from a real design-time build', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     const result = await extractProject({
       msbuild,
       projectPath: join(workspace, 'proj.vcxproj'),
@@ -170,8 +172,8 @@ describe.skipIf(!windows)('extractProject', () => {
     expect(byName('other.cpp').arguments).toContain('/DFOO=1')
   }, 120_000)
 
-  it('makes every include absolute, and finds the Windows SDK headers', async () => {
-    if (!canRun()) return
+  it('makes every include absolute, and finds the Windows SDK headers', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     const result = await extractProject({
       msbuild,
       projectPath: join(workspace, 'proj.vcxproj'),
@@ -190,8 +192,8 @@ describe.skipIf(!windows)('extractProject', () => {
     expect(includes.some((i) => /Windows Kits/i.test(i))).toBe(true)
   }, 120_000)
 
-  it('uses the real compiler as argv[0] and the source as the last argument', async () => {
-    if (!canRun()) return
+  it('uses the real compiler as argv[0] and the source as the last argument', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     const result = await extractProject({
       msbuild,
       projectPath: join(workspace, 'proj.vcxproj'),
@@ -207,8 +209,8 @@ describe.skipIf(!windows)('extractProject', () => {
     }
   }, 120_000)
 
-  it('reports a project that does not define the platform, rather than throwing', async () => {
-    if (!canRun()) return
+  it('reports a project that does not define the platform, rather than throwing', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     // The common failure: a project that codes its configurations differently.
     // It has to be survivable, because one bad project must not cost the other 99.
     //
@@ -229,8 +231,8 @@ describe.skipIf(!windows)('extractProject', () => {
     expect(result.error).toMatch(/error|MSB/i)
   }, 120_000)
 
-  it('does not fail a bad configuration, because MSBuild does not', async () => {
-    if (!canRun()) return
+  it('does not fail a bad configuration, because MSBuild does not', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     // Worth pinning down because it is surprising: an unknown *Configuration* is
     // evaluated with the project's defaults and yields real command lines, while
     // an unknown *Platform* errors. Nothing here can detect the former, and the
@@ -246,8 +248,8 @@ describe.skipIf(!windows)('extractProject', () => {
     expect(result.ok).toBe(true)
   }, 120_000)
 
-  it('reports a project file that is not there', async () => {
-    if (!canRun()) return
+  it('reports a project file that is not there', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     const result = await extractProject({
       msbuild,
       projectPath: join(workspace, 'missing.vcxproj'),
@@ -261,8 +263,8 @@ describe.skipIf(!windows)('extractProject', () => {
 })
 
 describe.skipIf(!windows)('generate', () => {
-  it('merges every project and reports the ones that failed', async () => {
-    if (!canRun()) return
+  it('merges every project and reports the ones that failed', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     const progress: string[] = []
     const result = await generate({
       msbuild,
@@ -280,8 +282,8 @@ describe.skipIf(!windows)('generate', () => {
     expect(progress).toHaveLength(2)
   }, 180_000)
 
-  it('leaves the read-only corpus untouched', async () => {
-    if (!canRun()) return
+  it('leaves the read-only corpus untouched', async (ctx) => {
+    if (!canRun()) return ctx.skip()
     // CLAUDE.md rule 8. A design-time build writes nothing, and this is what
     // proves it stays that way.
     const { stdout } = await run('git', ['status', '--porcelain'], {
