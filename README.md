@@ -105,6 +105,7 @@ f                 new filter (nested filters allowed)
 r                 rename a file or a filter
 m                 move a file to another filter
 b B c             build / rebuild / clean
+C                 generate compile_commands.json (this project, or the solution)
 p                 pick Configuration|Platform
 o                 toggle the full build log (wraps, and follows new output)
 esc               cancel the build, then hide its output, then clear search
@@ -117,6 +118,36 @@ Inside the full-screen build log (`o`): `j k` and the arrows scroll, `ctrl+u ctr
 and `PgUp PgDn` page, `g G` jump to the start and end. It follows new output as it
 arrives until you scroll up, and starts following again when you get back to the
 bottom; the header says which it is doing.
+
+## compile_commands.json
+
+`C` generates a [clang compilation database][db] so clangd and friends can index a
+Visual Studio C++ solution. It asks what to generate — the project under the cursor,
+or every project in the solution — and then which `compile_commands.json` to write,
+listing the ones it finds beneath the directory setui was launched with. It uses the
+`Configuration|Platform` shown in the header, runs about a second per project, and
+prints a line each. `esc` stops it and keeps what was extracted.
+
+[db]: https://clang.llvm.org/docs/JSONCompilationDatabase.html
+
+**It merges rather than replaces.** Regenerating one project after adding a few
+files updates that project's entries and leaves every other project's alone. Where
+several projects compile the same source — a shared core project, say — that file's
+entry accumulates the include directories and defines of all of them, so one
+database can cross-reference a whole repository at once.
+
+That accumulation is the trade: an entry can carry a flag some *other* project
+passed. If you want an exactly accurate database for one project, write it next to
+that project's `.vcxproj` — the output path is the accuracy knob. And because
+entries only ever grow, a *deleted* source file can only be removed by generating
+into a fresh file.
+
+Generation is Windows-only and needs MSBuild 17.8+ (see `msbuild.compileCommands`
+above). Everything else in setui works fine without it.
+
+A project that does not define the selected `Configuration|Platform` is reported and
+skipped rather than stopping the run; so is one with no C or C++ sources, which is
+what a driver package project looks like.
 
 ## What it will not do
 

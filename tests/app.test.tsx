@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { render } from 'ink-testing-library'
@@ -59,11 +59,41 @@ function scenario(opts: { msbuild?: string; msbuildArgs?: string | string[] } = 
 
 const settle = (ms = 80) => new Promise((r) => setTimeout(r, ms))
 
-/** Types keys one at a time, letting each one land before the next. */
-async function press(app: { stdin: { write: (s: string) => void } }, ...keys: string[]) {
+/**
+ * Types keys one at a time, letting each one land before the next.
+ *
+ * "Landed" means the frame has stopped changing, not that a fixed sleep elapsed.
+ * A keystroke can kick off async work -- expanding a project reads the .vcxproj
+ * and its .filters from disk -- and a fixed 40ms raced that on any machine slow
+ * enough, which failed sixteen tests on a Windows VM while passing on a laptop.
+ * Waiting for quiet is fast where the work is fast and patient where it is not.
+ */
+async function press(app: Rendered, ...keys: string[]) {
   for (const k of keys) {
     app.stdin.write(k)
-    await settle(40)
+    await quiet(app)
+  }
+}
+
+interface Rendered {
+  stdin: { write: (s: string) => void }
+  lastFrame: () => string | undefined
+}
+
+/** Resolves once the frame has held still for `idle`, or when `timeout` runs out. */
+async function quiet(app: Rendered, idle = 100, timeout = 8000) {
+  const deadline = Date.now() + timeout
+  let last = app.lastFrame()
+  let since = Date.now()
+  while (Date.now() < deadline) {
+    await settle(20)
+    const now = app.lastFrame()
+    if (now !== last) {
+      last = now
+      since = Date.now()
+    } else if (Date.now() - since >= idle) {
+      return
+    }
   }
 }
 
@@ -156,10 +186,10 @@ describe('going back to the solution list', () => {
     await settle()
     expect(app.lastFrame()).toContain('Demo.sln')
     await press(app, '-')
-    await settle(200)
-    const frame = app.lastFrame() ?? ''
-    expect(frame).toContain('Solutions')
-    expect(frame).toContain('Demo.sln')
+    // Going back rediscovers the solutions, which spawns fd or rg. The frame
+    // holds still while that runs, so waiting for quiet is not enough here.
+    await waitFor(() => (app.lastFrame() ?? '').includes('Solutions'))
+    expect(app.lastFrame()).toContain('Demo.sln')
     app.unmount()
   })
 
@@ -193,7 +223,9 @@ describe('opening things in the editor', () => {
     const { dir, app } = open()
     await settle()
     await press(app, 'e')
-    await settle(300)
+    // The editor is a spawned process writing a file; the frame never changes
+    // while it runs, so this waits on the effect rather than on a sleep.
+    await waitFor(() => existsSync(join(dir, 'Demo.vcxproj.opened')))
     expect(existsSync(join(dir, 'Demo.vcxproj.opened'))).toBe(true)
     app.unmount()
   })
@@ -204,8 +236,10 @@ describe('opening things in the editor', () => {
     // Expand the project, then step down to the first unfiltered file.
     await press(app, ENTER, 'j', 'j', 'j', 'j')
     await press(app, 'e')
-    await settle(300)
-    expect(existsSync(join(dir, 'main.h.opened')) || existsSync(join(dir, 'util.c.opened'))).toBe(true)
+    const opened = () =>
+      existsSync(join(dir, 'main.h.opened')) || existsSync(join(dir, 'util.c.opened'))
+    await waitFor(opened)
+    expect(opened()).toBe(true)
     app.unmount()
   })
 })
@@ -941,4 +975,85 @@ describe('frame height', () => {
       app.unmount()
     }, 20_000)
   }
+})
+
+describe('generating compile_commands.json', () => {
+  /** A scenario with a configured msbuild and two databases already on disk. */
+  const withDatabases = () => {
+    const s = scenario({ msbuild: 'C:\\msbuild.exe' })
+    writeFileSync(join(s.dir, 'compile_commands.json'), '[]', 'utf8')
+    // A second one further down the tree, the way a repo of several solutions
+    // ends up with one database per solution.
+    mkdirSync(join(s.dir, 'other'), { recursive: true })
+    writeFileSync(join(s.dir, 'other', 'compile_commands.json'), '[]', 'utf8')
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    return { ...s, app }
+  }
+
+  it('offers the key in help', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, '?')
+    expect(app.lastFrame()).toContain('generate compile_commands.json')
+    app.unmount()
+  })
+
+  it('asks whether to do this project or the whole solution', async () => {
+    const { app } = withDatabases()
+    await settle()
+    await press(app, 'C')
+    const frame = app.lastFrame() ?? ''
+    // On a project row, regenerating just that project leads: it is the common
+    // case and it is already under the cursor.
+    expect(frame).toContain('this project (Demo)')
+    expect(frame).toContain('whole solution (2 projects)')
+    app.unmount()
+  })
+
+  it('escapes out of the scope overlay leaving the tree alone', async () => {
+    const { app } = withDatabases()
+    await settle()
+    await press(app, 'C', ESC)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).not.toContain('whole solution')
+    expect(frame).toContain('Demo')
+    app.unmount()
+  })
+
+  it('then lists every compile_commands.json it can merge into', async () => {
+    const { app } = withDatabases()
+    await settle()
+    await press(app, 'C', ENTER)
+    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+    const frame = app.lastFrame() ?? ''
+    // The one beside the solution comes first as the default, and it already
+    // exists here, so it offers to merge rather than create.
+    expect(frame).toContain('merge into')
+    expect(frame).toContain(join('other', 'compile_commands.json'))
+    expect(frame).toContain('type a path...')
+    app.unmount()
+  })
+
+  it('refuses when msbuild is not configured, before asking anything', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, 'C')
+    expect(app.lastFrame()).toMatch(/msbuild/i)
+    expect(app.lastFrame() ?? '').not.toContain('whole solution')
+    app.unmount()
+  })
+
+  // setui runs on macOS; only this feature cannot. The key still exists and
+  // still answers, because a key that silently does nothing is worse.
+  onUnix('off Windows', () => {
+    it('says the feature needs Windows and opens nothing', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C')
+      const frame = app.lastFrame() ?? ''
+      expect(frame).toMatch(/needs Windows/i)
+      expect(frame).not.toContain('whole solution')
+      app.unmount()
+    })
+  })
 })

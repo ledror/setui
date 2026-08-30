@@ -247,11 +247,20 @@ function projectDirectories(item: Record<string, string> | undefined): ProjectDi
   }
 }
 
-/** The most useful line of a failed design-time build, for a one-line report. */
+/**
+ * The most useful line of a failed design-time build, for a one-line report.
+ *
+ * The pattern has to be narrow. Matching /error/ alone picks up MSBuild's own
+ * "0 Error(s)" summary line and reports a successful-but-empty build as failing
+ * with "0 Error(s)", which tells the user nothing.
+ */
 function reason(output: string): string {
   const lines = output.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  const error = lines.find((l) => /error|MSB\d{4}/i.test(l))
-  return error ?? lines.at(-1) ?? 'no compile commands were produced'
+  const error = lines.find((l) => /:\s*error\b|\berror [A-Z]+\d+|MSB\d{4}/i.test(l))
+  // No error at all means the project built fine and simply has nothing to
+  // compile -- a driver package project, or one whose sources are all excluded
+  // from this configuration.
+  return error ?? 'no C/C++ sources for this configuration'
 }
 
 export interface GenerateOptions {
