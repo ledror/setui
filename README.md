@@ -40,15 +40,30 @@ On first run it writes `~/.setui.json`:
 
 ```json
 {
-  "msbuild": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+  "msbuild": {
+    "build": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+    "compileCommands": ""
+  },
   "editor": "code -w",
   "logLines": 15,
   "msbuildArgs": "/v:m /nodeReuse:false"
 }
 ```
 
-Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
-inside setui to open the config in your editor, and `R` to reload.
+Fill in `msbuild.build` — build, rebuild and clean stay disabled until you do. Press
+`,` inside setui to open the config in your editor, and `R` to reload.
+
+`msbuild.compileCommands` is the MSBuild used by `C` to generate
+`compile_commands.json`. Leave it empty to use `msbuild.build`. It is separate
+because generation reads `-getTargetResult`, which landed in MSBuild 17.8: VS 2019
+ships 16.x and can never do it, while the MSBuild that builds your solution is often
+exactly that older one. If the one in use is too old, `C` says so and names this key.
+
+The older string form still works and still means the build MSBuild:
+
+```json
+"msbuild": "C:\\...\\MSBuild.exe"
+```
 
 `logLines` is how much build output stays on screen (default 15, clamped to 3-60);
 `o` opens the whole log full-screen regardless.

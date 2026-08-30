@@ -210,9 +210,12 @@ otherwise opening a dialog pushes the header off the top and the view jumps.
 ## No persistence
 
 `setui` is stateless between runs: no cache, no session file, nothing written beside
-the user's sources. The only state is `~/.setui.json` — `msbuild`, `editor`,
-`logLines`, `msbuildArgs` — and it is never written by setui after it is created
-empty on first run.
+the user's sources. The only state is `~/.setui.json` — `msbuild` (`build` and
+`compileCommands`), `editor`, `logLines`, `msbuildArgs` — and it is never written by
+setui after it is created empty on first run. `msbuild` also accepts the bare string
+every config written before `compile_commands.json` existed uses; it is read as
+`build`, and the file is not rewritten to the newer shape, for the same reason
+invalid JSON is reported rather than replaced.
 
 Which configuration a solution opens with is therefore derived, not remembered: sort
 the configurations and platforms, take the first containing `debug` and the first

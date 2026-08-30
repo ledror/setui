@@ -10,20 +10,62 @@ describe('loadConfig', () => {
   it('creates the file with empty values on first run', async () => {
     const path = temp()
     const config = await loadConfig(path)
-    expect(config.msbuild).toBe('')
+    expect(config.msbuild).toEqual({ build: '', compileCommands: '' })
     expect(config.editor).toBeTruthy()
-    expect(JSON.parse(readFileSync(path, 'utf8')).msbuild).toBe('')
+    expect(JSON.parse(readFileSync(path, 'utf8')).msbuild).toEqual({ build: '', compileCommands: '' })
   })
 
   it('reads an existing config', async () => {
     const path = temp()
-    writeFileSync(path, JSON.stringify({ msbuild: 'C:\\msbuild.exe', editor: 'code -w', logLines: 20 }))
+    writeFileSync(
+      path,
+      JSON.stringify({
+        msbuild: { build: 'C:\\msbuild.exe', compileCommands: 'C:\\new\\msbuild.exe' },
+        editor: 'code -w',
+        logLines: 20,
+      }),
+    )
     expect(await loadConfig(path)).toEqual({
-      msbuild: 'C:\\msbuild.exe',
+      msbuild: { build: 'C:\\msbuild.exe', compileCommands: 'C:\\new\\msbuild.exe' },
       editor: 'code -w',
       logLines: 20,
       msbuildArgs: [],
     })
+  })
+
+  it('still reads the string msbuild every older config has', async () => {
+    // Configs written before compile_commands.json existed say
+    // "msbuild": "C:\\...\\MSBuild.exe", and that still means the build MSBuild.
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuild: 'C:\\msbuild.exe' }))
+    expect((await loadConfig(path)).msbuild).toEqual({
+      build: 'C:\\msbuild.exe',
+      compileCommands: '',
+    })
+  })
+
+  it('does not rewrite a config it read in the older shape', async () => {
+    // The file is the user's. loadConfig refuses to migrate it behind their back
+    // for the same reason it refuses to replace invalid JSON.
+    const path = temp()
+    const original = JSON.stringify({ msbuild: 'C:\\msbuild.exe' })
+    writeFileSync(path, original)
+    await loadConfig(path)
+    expect(readFileSync(path, 'utf8')).toBe(original)
+  })
+
+  it('degrades a nonsensical msbuild to empty rather than failing to start', async () => {
+    for (const value of [7, ['a'], null, { build: 3 }]) {
+      const path = temp()
+      writeFileSync(path, JSON.stringify({ msbuild: value }))
+      expect((await loadConfig(path)).msbuild.build).toBe('')
+    }
+  })
+
+  it('takes only the half of the object that is present', async () => {
+    const path = temp()
+    writeFileSync(path, JSON.stringify({ msbuild: { compileCommands: 'C:\\new.exe' } }))
+    expect((await loadConfig(path)).msbuild).toEqual({ build: '', compileCommands: 'C:\\new.exe' })
   })
 
   it('defaults the build pane to 15 lines', async () => {
@@ -47,7 +89,7 @@ describe('loadConfig', () => {
 
   it('fills in a default editor when the key is missing', async () => {
     const path = temp()
-    writeFileSync(path, JSON.stringify({ msbuild: 'x' }))
+    writeFileSync(path, JSON.stringify({ msbuild: { build: 'x' } }))
     expect((await loadConfig(path)).editor).toBeTruthy()
   })
 

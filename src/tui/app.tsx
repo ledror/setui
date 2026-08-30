@@ -427,7 +427,9 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const runBuild = (target: BuildTarget) => {
     if (!solution || !solutionPath || !current || !config) return
     if (running.current) return say('a build is already running')
-    if (!config.msbuild) return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
+    if (!config.msbuild.build) {
+      return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
+    }
     const entry = solution.projects.find((p) => p.guid === current.guid)
     if (!entry || entry.isFolder) return say('select a project first')
     const request = {
@@ -440,10 +442,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     }
     // The exact invocation heads the log, so custom msbuildArgs are visible and the
     // whole line can be pasted into a terminal.
-    setLog([commandLine(config.msbuild, buildArgs(request))])
+    setLog([commandLine(config.msbuild.build, buildArgs(request))])
     setBuilding(`${target} ${entry.name}`)
     running.current = startBuild(
-      config.msbuild,
+      config.msbuild.build,
       request,
       (chunk) => setLog((previous) => [...previous, ...chunk.split(/\r?\n/).filter((l) => l !== '')]),
       (code) => {
