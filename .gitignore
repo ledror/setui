@@ -1,3 +1,4 @@
 node_modules/
 dist/
 compile_commands/
+compile_commands.json
