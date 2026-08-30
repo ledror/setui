@@ -16,7 +16,7 @@ const USAGE = `setui ${version} - the Visual Studio Solution Explorer, in your t
   --help, -h            this message
   --version, -v         print the version
 
-Configuration lives in ~/.setui.json (msbuild path, editor, logLines).
+Configuration lives in ~/.setui.json (msbuild paths, editor, logLines).
 Press ? inside setui for the keys.`
 
 const arg = process.argv[2]
