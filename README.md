@@ -123,10 +123,17 @@ bottom; the header says which it is doing.
 
 `C` generates a [clang compilation database][db] so clangd and friends can index a
 Visual Studio C++ solution. It asks what to generate — the project under the cursor,
-or every project in the solution — and then which `compile_commands.json` to write,
-listing the ones it finds beneath the directory setui was launched with. It uses the
+or every project in the solution — and then where to write it. It uses the
 `Configuration|Platform` shown in the header, runs about a second per project, and
 prints a line each. `esc` stops it and keeps what was extracted.
+
+The output list is a convenience: it shows every `compile_commands.json` beneath the
+directory setui was launched with, so merging into one you already have is one
+keypress. **You can also just type a path** — anything you type is offered as the
+last choice, showing the exact file it will write, so nothing is a surprise. A
+relative path resolves against the launch directory, a path that is not a `.json`
+file is taken as a directory to put the database in, and missing directories are
+created.
 
 [db]: https://clang.llvm.org/docs/JSONCompilationDatabase.html
 

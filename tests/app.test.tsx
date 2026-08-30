@@ -1056,7 +1056,43 @@ describe('generating compile_commands.json', () => {
     // exists here, so it offers to merge rather than create.
     expect(frame).toContain('merge into')
     expect(frame).toContain(join('other', 'compile_commands.json'))
-    expect(frame).toContain('type a path...')
+    app.unmount()
+  })
+
+  it('offers whatever path is typed, even when nothing in the list matches', async () => {
+    // The list is a convenience for merging into a database that exists. Typing
+    // a path used to filter the list to nothing and leave no way forward.
+    const { app } = withDatabases()
+    await settle()
+    await press(app, 'C', ENTER)
+    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+    for (const ch of 'D:\\somewhere\\new.json') app.stdin.write(ch)
+    await settle(200)
+    const frame = app.lastFrame() ?? ''
+    expect(frame).toContain('create')
+    expect(frame).toContain(join('D:\\somewhere', 'new.json'))
+    app.unmount()
+  })
+
+  it('names the database for you when a directory is typed', async () => {
+    const { app } = withDatabases()
+    await settle()
+    await press(app, 'C', ENTER)
+    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+    for (const ch of 'D:\\somewhere') app.stdin.write(ch)
+    await settle(200)
+    expect(app.lastFrame()).toContain(join('D:\\somewhere', 'compile_commands.json'))
+    app.unmount()
+  })
+
+  it('resolves a relative path against the directory setui was launched with', async () => {
+    const { dir, app } = withDatabases()
+    await settle()
+    await press(app, 'C', ENTER)
+    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+    for (const ch of 'build') app.stdin.write(ch)
+    await settle(200)
+    expect(app.lastFrame()).toContain(join(dir, 'build', 'compile_commands.json'))
     app.unmount()
   })
 
@@ -1122,8 +1158,9 @@ describe('generating compile_commands.json', () => {
       await settle(300)
       await press(app, 'C') // scope: this project is first, under the cursor
       await press(app, ENTER)
-      await waitFor(() => (app.lastFrame() ?? '').includes('type a path...'))
-      await press(app, ENTER) // the default, beside the solution
+      // The default is a database beside the solution, which does not exist yet.
+      await waitFor(() => (app.lastFrame() ?? '').includes('create'))
+      await press(app, ENTER)
 
       const output = join(dir, 'compile_commands.json')
       await waitFor(() => existsSync(output), 90_000)
