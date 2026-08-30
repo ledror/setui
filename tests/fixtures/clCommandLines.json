@@ -1,0 +1,409 @@
+{
+  "_comment": "Captured from real MSBuild 18.9 (-getTargetResult) over 30 random Windows-driver-samples projects plus one synthetic project. Regenerate with the recipe in plans/02-extraction.md. Windows + VS >= 17.8 required to reproduce.",
+  "clCommandLines": [
+    {
+      "Identity": "/c /W1 /WX- /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"plclient\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\powerlimit\\plclient\\plclient.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\powerlimit\\plclient\\wdf.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\powerlimit\\plclient",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W1 /WX- /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"plclient\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\powerlimit\\plclient",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\common /I\\ks /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"AvsCamera\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\AvsCamera.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\AvsCameraDevice.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\AvsCameraFilter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\capture.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\device.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\filter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\formats.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\hwsim.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\imagecapture.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\ImagehwSim.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Mutex.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\NV12Synthesizer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\PreviewHwSim.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\RGB24Synthesizer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Roi.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Sensor.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\SensorSimulation.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Synthesizer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Timer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\util.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\videocapture.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\VideoHwSim.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\Waitable.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\WorkItem.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\XRGBSynthesizer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\YUVSynthesizer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys\\YUY2Synthesizer.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avscamera\\sys",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W4 /WX /D _WINDLL /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"filterum\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\filter\\generic\\filter.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\filter\\generic",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W4 /WX /D _WINDLL /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"filterum\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\filter\\generic",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\inc /I..\\..\\ /I. /I..\\..\\..\\..\\wil\\include /W4 /WX /D _WINDLL /D _WINDLL /D _USRDLL /D UNICODE /D _UNICODE /fp:precise /Zc:wchar_t /Zc:forScope /std:c++17 /Fo\"KWSApo\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\KWSApo\\KWSApo.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\KWSApo\\KWSApoDll.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\KWSApo\\KWSApoEFX.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\KWSApo",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W1 /WX- /D _WIN64 /D _AMD64_ /D AMD64 /D _WINDLL /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"IddSampleDriver\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt /D_ATL_NO_WIN_SUPPORT /DUMDF_DRIVER /DIDDCX_VERSION_MAJOR=1 /DIDDCX_VERSION_MINOR=6 /DIDDCX_MINIMUM_VERSION_REQUIRED=4 ",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\video\\IndirectDisplay\\IddSampleDriver\\Driver.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\video\\IndirectDisplay\\IddSampleDriver",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\inc /W4 /WX /D _WIN2K_COMPAT_SLIST_USAGE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Yu\"precomp.h\" /Fp\"SampleDSM\\x64\\Debug\\\\precomp.pch\" /Fo\"SampleDSM\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src\\intrface.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src\\dsmmain.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src\\utils.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src\\wmi.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\inc /W4 /WX /D _WIN2K_COMPAT_SLIST_USAGE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Yc\"precomp.h\" /Fp\"SampleDSM\\x64\\Debug\\\\precomp.pch\" /Fo\"SampleDSM\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src\\precompsrc.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\inc /W4 /WX /D _WIN2K_COMPAT_SLIST_USAGE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"SampleDSM\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\storage\\msdsm\\src",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\inc /I..\\idl /I.\\WFPSampler\\x64\\Debug\\ /W4 /WX /D WIN32_LEAN_AND_MEAN /D UNICODE /D _UNICODE /D UM_NDIS630 /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"WFPSampler\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\WFPSampler\\x64\\Debug\\WFPSamplerRPC_c.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\WFPSampler\\x64\\Debug\\WFPSamplerRPC_s.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\inc /I..\\idl /I.\\WFPSampler\\x64\\Debug\\ /W4 /WX /D WIN32_LEAN_AND_MEAN /D UNICODE /D _UNICODE /D UM_NDIS630 /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"WFPSampler\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmCallout.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmEngine.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmFilter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmLayer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmProvider.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmProviderContext.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmSubLayer.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_FwpmTransaction.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_GUID.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_IPAddress.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_Log.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_MACAddress.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_Process.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_Registry.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_Service.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_SID.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_Strings.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_ThreadPools.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_ThreadsAndEvents.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib\\HelperFunctions_WinSock.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\trans\\WFPSampler\\lib",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\inc /I..\\..\\ /I. /I..\\..\\..\\..\\wil\\include /W4 /WX /D _WINDLL /D _WINDLL /D _USRDLL /D UNICODE /D _UNICODE /fp:precise /Zc:wchar_t /Zc:forScope /std:c++17 /Fo\"SwapAPO\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\SwapAPO\\Swap.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\SwapAPO\\SwapAPODll.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\SwapAPO\\SwapAPOMFX.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\SwapAPO\\SwapAPOSFX.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\APO\\SwapAPO",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W4 /WX /D UNICODE /D _UNICODE /D DEBUG_LEVEL=DEBUGLVL_BLAB /D _WIN2K_COMPAT_SLIST_USAGE /D _NO_SYS_GUID_OPERATOR_EQ_ /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"avssamp\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\audio.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\avssamp.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\capture.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\filter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\image.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\video.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\wave.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W4 /WX /D UNICODE /D _UNICODE /D DEBUG_LEVEL=DEBUGLVL_BLAB /D _WIN2K_COMPAT_SLIST_USAGE /D _NO_SYS_GUID_OPERATOR_EQ_ /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"avssamp\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp\\purecall.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\avstream\\avssamp",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W1 /WX- /D _UNICODE /D UNICODE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"WmiToast\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\wmi\\WmiExecute.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\wmi\\WmiGetSet.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\wmi\\WmiToast.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\wmi",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kbfiltr\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\kbfiltr\\sys\\kbfiltr.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\kbfiltr\\sys\\rawpdo.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\kbfiltr\\sys",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kbfiltr\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\kbfiltr\\sys",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"toast\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\toast\\toast.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\toast",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"toast\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\exe\\toast",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\ /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kasanagent\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\tools\\kasan\\samples\\KasanDemo-WDM\\exe\\kasanagent.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\tools\\kasan\\samples\\KasanDemo-WDM\\exe",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\ /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kasanagent\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\tools\\kasan\\samples\\KasanDemo-WDM\\exe",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"elamsample\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\security\\elam\\elamsample.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\security\\elam",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"elamsample\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\security\\elam",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"hclient\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\buffers.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\ecdisp.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\hclient.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\pnp.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\report.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient\\strings.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"hclient\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\hclient",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\wdm /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"event\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\event\\exe\\eventtest.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\event\\exe\\install.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\event\\exe",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\wdm /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"event\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\event\\exe",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I. /I..\\Eventdrv /W1 /WX- /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"evntctrl\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\tracing\\evntdrv\\evntctrl\\install.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\tracing\\evntdrv\\evntctrl\\tracectl.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\tracing\\evntdrv\\evntctrl",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I. /I..\\Eventdrv /W1 /WX- /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"evntctrl\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\tracing\\evntdrv\\evntctrl",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I. /W4 /WX /D POOL_NX_OPTIN=1 /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"NameChanger\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\nc.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\nccompat.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\nccontext.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\nccreate.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncdirenum.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncdirnotify.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncfileinfo.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncfsctrl.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\nchelper.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncinit.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncmapping.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncnameprov.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncoffsets.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger\\ncpath.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I. /W4 /WX /D POOL_NX_OPTIN=1 /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"NameChanger\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\filesys\\miniFilter\\NameChanger",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /D _WINDLL /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kbdfr\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\layout\\all_kbds\\kbdfr\\kbdfr.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\layout\\all_kbds\\kbdfr",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /D _WINDLL /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"kbdfr\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\input\\layout\\all_kbds\\kbdfr",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I.. /I.. /W4 /WX /D NDIS_MINIPORT_DRIVER /D NDIS_WDM /D NDIS60_MINIPORT /D NDIS60 /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Yu\"precomp.h\" /Fp\"mux\\x64\\Debug\\\\precomp.pch\" /Fo\"mux\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt   /GS",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\miniport.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\mux.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\protocol.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\novlan",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I.. /I.. /W4 /WX /D NDIS_MINIPORT_DRIVER /D NDIS_WDM /D NDIS60_MINIPORT /D NDIS60 /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Yc\"precomp.h\" /Fp\"mux\\x64\\Debug\\\\precomp.pch\" /Fo\"mux\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt   /GS",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\novlan\\precompsrc.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\novlan",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I.. /W4 /WX /D NDIS_MINIPORT_DRIVER /D NDIS_WDM /D NDIS60_MINIPORT /D NDIS60 /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"mux\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt   /GS",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\ndis\\mux\\driver\\60\\novlan",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I\\wdm /I..\\..\\inc /W1 /WX- /D _WINDLL /D _UNICODE /D UNICODE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"VirtualSerial2um\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\device.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\driver.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\queue.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\ringbuffer.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\ComPort",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I\\wdm /I..\\..\\inc /W1 /WX- /D _WINDLL /D _UNICODE /D UNICODE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"VirtualSerial2um\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\serial\\VirtualSerial2\\ComPort",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\..\\inc /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"filter\\x64\\Debug\\\\\" /external:W4 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\kmdf\\filter\\generic\\filter.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\kmdf\\filter\\generic",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\..\\inc /W4 /WX /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"filter\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\toastDrv\\kmdf\\filter\\generic",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\inc /I..\\ /W4 /WX /D _WINDLL /D _WINDLL /D _USRDLL /D UNICODE /D _UNICODE /MTd /fp:precise /Zc:wchar_t /Zc:forScope /std:c++17 /Fo\"KeywordD.E0F02048\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\KeywordDetectorAdapter\\dllmain.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\KeywordDetectorAdapter\\KeywordDetectorContosoAdapter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\KeywordDetectorAdapter\\stdafx.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\audio\\sysvad\\KeywordDetectorAdapter",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"toast\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\toast\\toast.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\toast",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"toast\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\toast",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I\\sensors\\1.1 /W4 /WX /D _WINDLL /D _UNICODE /D UNICODE /D WPP_MACRO_USE_KM_VERSION_FOR_UM /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"Activity\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\Activity\\client.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\Activity\\device.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\Activity\\driver.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\Activity\\hardwaresimulator.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\Activity",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"WmiSamp\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\wmi\\wmisamp\\WmiHandler.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\wmi\\wmisamp\\WmiSamp.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\wmi\\wmisamp",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"WmiSamp\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\wmi\\wmisamp",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I\\sensors\\1.1 /W4 /WX /D _WINDLL /D _UNICODE /D UNICODE /D WPP_MACRO_USE_KM_VERSION_FOR_UM /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"SensorsC.C3964BD1\\x64\\Debug\\\\\" /external:W4 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\AlsClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\BarClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\Clients.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\device.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\driver.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\GeomagneticOrientationClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\GravityVectorClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\GyrClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\linearaccelerometerclient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\MagClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\PrxClient.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver\\relativefusionclient.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\sensors\\SensorsComboDriver",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /D EVENT_TRACING /D UNICODE /D _UNICODE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"Enum\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\enum\\enum.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\enum",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /I..\\..\\inc /W1 /WX- /D EVENT_TRACING /D UNICODE /D _UNICODE /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"Enum\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\general\\toaster\\umdf2\\exe\\enum",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"firefly\\x64\\Debug\\\\\" /external:W1 /Gd /TC /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver\\device.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver\\driver.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver\\vfeature.c;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver\\wmi.c",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/c /W1 /WX- /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"firefly\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\hid\\firefly\\driver",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I..\\..\\..\\..\\wil\\include /W1 /WX- /EHsc /MDd /fp:precise /Zc:wchar_t /Zc:forScope /Fo\"netvadap.E2A65EFD\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\adapter.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\configuration.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\enl.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\enlthreads.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\memory.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\queue.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\rxqueue.cpp;C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\code\\txqueue.cpp",
+      "WorkingDirectory": "C:\\git\\setui\\sample-projects\\Windows-driver-samples\\network\\netadaptercx\\netvadapterlibrary\\ethernet_km",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I\"C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\inc\" /W1 /WX- /D WIN32 /D FOO=1 /EHsc /MD /fp:precise /Zc:wchar_t /Zc:forScope /std:c++20 /Fo\"t1\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\main.cpp",
+      "WorkingDirectory": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": "true"
+    },
+    {
+      "Identity": "/c /I\"C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\inc\" /W1 /WX- /D ONLYOTHER /D WIN32 /D FOO=1 /EHsc /MD /fp:precise /Zc:wchar_t /Zc:forScope /std:c++20 /Fo\"t1\\x64\\Debug\\\\\" /external:W1 /Gd /TP /errorReport:prompt",
+      "Files": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\other.cpp",
+      "WorkingDirectory": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/scanModules /libraryModuleName\"std\" /c /I\"C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\inc\" /W1 /WX- /D WIN32 /D FOO=1 /EHsc /MD /fp:precise /Zc:wchar_t /Zc:forScope /std:c++20 /ifcOutput \"t1\\x64\\Debug\\microsoft\\STL\\\\\" /Fo\"t1\\x64\\Debug\\microsoft\\STL\\\\\" /external:W1 /Gd /interface /errorReport:prompt  /TP",
+      "Files": "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\modules\\std.ixx",
+      "WorkingDirectory": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    },
+    {
+      "Identity": "/scanModules /libraryModuleName\"std.compat\" /c /I\"C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\inc\" /W1 /WX- /D WIN32 /D FOO=1 /EHsc /MD /fp:precise /Zc:wchar_t /Zc:forScope /std:c++20 /ifcOutput \"t1\\x64\\Debug\\microsoft\\STL\\\\\" /Fo\"t1\\x64\\Debug\\microsoft\\STL\\\\\" /external:W1 /Gd /interface /errorReport:prompt  /TP",
+      "Files": "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\modules\\std.compat.ixx",
+      "WorkingDirectory": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1",
+      "ToolPath": "C:\\WINDOWS\\system32\\CL.exe",
+      "ConfigurationOptions": ""
+    }
+  ],
+  "projectDirectories": {
+    "IncludePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\include;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\atlmfc\\include;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Auxiliary\\VS\\include;;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\ucrt;;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Auxiliary\\VS\\UnitTest\\include;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\um;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\cppwinrt;Include\\um;",
+    "ExternalIncludePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\include;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\atlmfc\\include;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Auxiliary\\VS\\include;;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\ucrt;;;C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Auxiliary\\VS\\UnitTest\\include;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\um;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.28000.0\\cppwinrt;Include\\um;",
+    "ProjectDir": "C:\\Users\\Dror\\AppData\\Local\\Temp\\claude\\C--git-setui\\28b04088-41d4-43d4-8ec5-cf7e8d6ce3fc\\scratchpad\\t1\\"
+  }
+}
