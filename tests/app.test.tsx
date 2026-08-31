@@ -1024,85 +1024,90 @@ describe('generating compile_commands.json', () => {
     app.unmount()
   })
 
-  it('asks whether to do this project or the whole solution', async () => {
-    const { app } = withDatabases()
-    await settle()
-    await press(app, 'C')
-    const frame = app.lastFrame() ?? ''
-    // On a project row, regenerating just that project leads: it is the common
-    // case and it is already under the cursor.
-    expect(frame).toContain('this project (Demo)')
-    expect(frame).toContain('whole solution (2 projects)')
-    app.unmount()
-  })
+  // Everything below opens the scope and path overlays, which
+  // startCompileCommands refuses to do off Windows. Off Windows they fail;
+  // worse, the two negative ones passed against the wrong refusal message.
+  onWindows('the overlays', () => {
+    it('asks whether to do this project or the whole solution', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C')
+      const frame = app.lastFrame() ?? ''
+      // On a project row, regenerating just that project leads: it is the common
+      // case and it is already under the cursor.
+      expect(frame).toContain('this project (Demo)')
+      expect(frame).toContain('whole solution (2 projects)')
+      app.unmount()
+    })
 
-  it('escapes out of the scope overlay leaving the tree alone', async () => {
-    const { app } = withDatabases()
-    await settle()
-    await press(app, 'C', ESC)
-    const frame = app.lastFrame() ?? ''
-    expect(frame).not.toContain('whole solution')
-    expect(frame).toContain('Demo')
-    app.unmount()
-  })
+    it('escapes out of the scope overlay leaving the tree alone', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ESC)
+      const frame = app.lastFrame() ?? ''
+      expect(frame).not.toContain('whole solution')
+      expect(frame).toContain('Demo')
+      app.unmount()
+    })
 
-  it('then lists every compile_commands.json it can merge into', async () => {
-    const { app } = withDatabases()
-    await settle()
-    await press(app, 'C', ENTER)
-    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
-    const frame = app.lastFrame() ?? ''
-    // The one beside the solution comes first as the default, and it already
-    // exists here, so it offers to merge rather than create.
-    expect(frame).toContain('merge into')
-    expect(frame).toContain(join('other', 'compile_commands.json'))
-    app.unmount()
-  })
+    it('then lists every compile_commands.json it can merge into', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      const frame = app.lastFrame() ?? ''
+      // The one beside the solution comes first as the default, and it already
+      // exists here, so it offers to merge rather than create.
+      expect(frame).toContain('merge into')
+      expect(frame).toContain(join('other', 'compile_commands.json'))
+      app.unmount()
+    })
 
-  it('offers whatever path is typed, even when nothing in the list matches', async () => {
-    // The list is a convenience for merging into a database that exists. Typing
-    // a path used to filter the list to nothing and leave no way forward.
-    const { app } = withDatabases()
-    await settle()
-    await press(app, 'C', ENTER)
-    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
-    for (const ch of 'D:\\somewhere\\new.json') app.stdin.write(ch)
-    await settle(200)
-    const frame = app.lastFrame() ?? ''
-    expect(frame).toContain('create')
-    expect(frame).toContain(join('D:\\somewhere', 'new.json'))
-    app.unmount()
-  })
+    it('offers whatever path is typed, even when nothing in the list matches', async () => {
+      // The list is a convenience for merging into a database that exists. Typing
+      // a path used to filter the list to nothing and leave no way forward.
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'D:\\somewhere\\new.json') app.stdin.write(ch)
+      await settle(200)
+      const frame = app.lastFrame() ?? ''
+      expect(frame).toContain('create')
+      expect(frame).toContain(join('D:\\somewhere', 'new.json'))
+      app.unmount()
+    })
 
-  it('names the database for you when a directory is typed', async () => {
-    const { app } = withDatabases()
-    await settle()
-    await press(app, 'C', ENTER)
-    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
-    for (const ch of 'D:\\somewhere') app.stdin.write(ch)
-    await settle(200)
-    expect(app.lastFrame()).toContain(join('D:\\somewhere', 'compile_commands.json'))
-    app.unmount()
-  })
+    it('names the database for you when a directory is typed', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'D:\\somewhere') app.stdin.write(ch)
+      await settle(200)
+      expect(app.lastFrame()).toContain(join('D:\\somewhere', 'compile_commands.json'))
+      app.unmount()
+    })
 
-  it('resolves a relative path against the directory setui was launched with', async () => {
-    const { dir, app } = withDatabases()
-    await settle()
-    await press(app, 'C', ENTER)
-    await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
-    for (const ch of 'build') app.stdin.write(ch)
-    await settle(200)
-    expect(app.lastFrame()).toContain(join(dir, 'build', 'compile_commands.json'))
-    app.unmount()
-  })
+    it('resolves a relative path against the directory setui was launched with', async () => {
+      const { dir, app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'build') app.stdin.write(ch)
+      await settle(200)
+      expect(app.lastFrame()).toContain(join(dir, 'build', 'compile_commands.json'))
+      app.unmount()
+    })
 
-  it('refuses when msbuild is not configured, before asking anything', async () => {
-    const { app } = open()
-    await settle()
-    await press(app, 'C')
-    expect(app.lastFrame()).toMatch(/msbuild/i)
-    expect(app.lastFrame() ?? '').not.toContain('whole solution')
-    app.unmount()
+    it('refuses when msbuild is not configured, before asking anything', async () => {
+      const { app } = open()
+      await settle()
+      await press(app, 'C')
+      expect(app.lastFrame()).toMatch(/msbuild/i)
+      expect(app.lastFrame() ?? '').not.toContain('whole solution')
+      app.unmount()
+    })
   })
 
   // setui runs on macOS; only this feature cannot. The key still exists and
