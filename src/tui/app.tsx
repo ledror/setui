@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuildTarget } from '../core/build.js'
@@ -10,13 +10,17 @@ import { parseSln, type SlnDocument } from '../core/sln.js'
 import { startBuild, wrapLines, type RunningBuild } from './build.js'
 import { buildArgs, commandLine } from '../core/build.js'
 import { CONFIG_PATH, DEFAULT_LOG_LINES, loadConfig, type Config } from './config.js'
-import { findSolutions } from './discover.js'
+import { merge, parse, serialize } from '../core/compileCommands.js'
+import { generate, resolveToolchain } from './compileCommands.js'
+import { findFiles, findSolutions } from './discover.js'
 import { GLYPH, iconFor } from './icons.js'
 import { edit, forRender, start } from './textInput.js'
 import { buildRows, isExpandable, windowOf, type Row } from './tree.js'
 
 const ACCENT = 'cyan'
 const SELECT_ROWS = 12
+/** Sentinel for the generation scope overlay; no project GUID can collide with it. */
+const ALL_PROJECTS = '\0all'
 const CHEVRON_OPEN = '▾'
 const CHEVRON_CLOSED = '▸'
 
@@ -92,6 +96,7 @@ function SelectList({
   title,
   items,
   rows = SELECT_ROWS,
+  freeText,
   onPick,
   onCancel,
 }: {
@@ -99,16 +104,25 @@ function SelectList({
   items: Choice[]
   /** Visible rows. Overlays keep the default; the solution picker fills the screen. */
   rows?: number
+  /**
+   * Turns whatever has been typed into an extra choice at the end of the list,
+   * so the list stays a convenience and never a restriction. Without it a query
+   * that matches nothing leaves an empty list and no way forward.
+   */
+  freeText?: ((query: string) => Choice | null) | undefined
   onPick: (value: string) => void
   onCancel: () => void
 }) {
   const [cursor, setCursor] = useState(0)
   const [state, setState] = useState(() => start(''))
   const query = state.value
-  const shown = useMemo(
-    () => (query ? items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase())) : items),
-    [items, query],
-  )
+  const shown = useMemo(() => {
+    const matches = query
+      ? items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase()))
+      : items
+    const typed = query && freeText ? freeText(query) : null
+    return typed ? [...matches, typed] : matches
+  }, [items, query, freeText])
   useInput((input, key) => {
     if (key.escape) return onCancel()
     if (key.downArrow) return setCursor((c) => Math.min(c + 1, shown.length - 1))
@@ -147,7 +161,13 @@ function SelectList({
 
 type Overlay =
   | { type: 'prompt'; label: string; initial: string; submit: (value: string) => void }
-  | { type: 'select'; title: string; items: Choice[]; pick: (value: string) => void }
+  | {
+      type: 'select'
+      title: string
+      items: Choice[]
+      freeText?: (query: string) => Choice | null
+      pick: (value: string) => void
+    }
   | { type: 'confirm'; message: string; confirm: () => void }
   | { type: 'help' }
 
@@ -168,6 +188,7 @@ const HELP: [string, string][] = [
   ['r', 'rename'],
   ['m', 'move to filter'],
   ['b B c', 'build / rebuild / clean'],
+  ['C', 'generate compile_commands.json'],
   ['p', 'configuration | platform'],
   ['o', 'toggle the full build log'],
   ['e', 'open: a file, or the .vcxproj on a project'],
@@ -185,7 +206,8 @@ function overlayHeight(overlay: Overlay | null): number {
     case 'confirm':
       return 3 // one line inside a round border
     case 'select':
-      return Math.min(overlay.items.length, SELECT_ROWS) + 4 // border, title, filter
+      // +1 for the row a typed path adds to the end of the list.
+      return Math.min(overlay.items.length + (overlay.freeText ? 1 : 0), SELECT_ROWS) + 4
     case 'help':
       return HELP.length + 2
   }
@@ -265,6 +287,17 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const { exit, suspendTerminal } = useApp()
   const { rows: termRows, columns: termColumns } = useTerminalSize()
 
+  /**
+   * `start` is either a directory to search or a .sln to open. Everything that
+   * searches or shows a path relative to it needs the directory: opened on a
+   * .sln, `relative(start, thatSameSln)` is the empty string, which drew the
+   * solution list with a blank row.
+   */
+  const searchRoot = useMemo(
+    () => (start.toLowerCase().endsWith('.sln') ? dirname(start) : start),
+    [start],
+  )
+
   const [config, setConfig] = useState<Config | null>(null)
   const [solutions, setSolutions] = useState<string[] | null>(null)
   const [solutionPath, setSolutionPath] = useState<string | null>(null)
@@ -288,6 +321,8 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const running = useRef<RunningBuild | null>(null)
   /** Set when the user kills a build, so its exit is not reported as a failure. */
   const cancelled = useRef(false)
+  /** Cancels a compile_commands.json generation. Its partial result is kept. */
+  const generating = useRef<AbortController | null>(null)
 
   const say = (text: string, error = false) => setStatus({ text, error })
   const fail = (e: unknown) => say(e instanceof Error ? e.message : String(e), true)
@@ -427,7 +462,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   const runBuild = (target: BuildTarget) => {
     if (!solution || !solutionPath || !current || !config) return
     if (running.current) return say('a build is already running')
-    if (!config.msbuild) return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
+    if (generating.current) return say('compile_commands.json is generating')
+    if (!config.msbuild.build) {
+      return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
+    }
     const entry = solution.projects.find((p) => p.guid === current.guid)
     if (!entry || entry.isFolder) return say('select a project first')
     const request = {
@@ -440,10 +478,10 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     }
     // The exact invocation heads the log, so custom msbuildArgs are visible and the
     // whole line can be pasted into a terminal.
-    setLog([commandLine(config.msbuild, buildArgs(request))])
+    setLog([commandLine(config.msbuild.build, buildArgs(request))])
     setBuilding(`${target} ${entry.name}`)
     running.current = startBuild(
-      config.msbuild,
+      config.msbuild.build,
       request,
       (chunk) => setLog((previous) => [...previous, ...chunk.split(/\r?\n/).filter((l) => l !== '')]),
       (code) => {
@@ -456,6 +494,161 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         say(code === 0 ? `${target} succeeded` : `${target} failed (exit ${code ?? 'killed'})`, code !== 0)
       },
     )
+  }
+
+  /** Absolute paths of the solution's real projects, in solution order. */
+  const projectPaths = (guid?: string): string[] => {
+    if (!solution || !solutionPath) return []
+    const base = dirname(solutionPath)
+    return solution.projects
+      .filter((p) => !p.isFolder && (guid === undefined || p.guid === guid))
+      .map((p) => join(base, toLocal(p.path)))
+  }
+
+  /**
+   * Extracts every named project and merges the result into `outputPath`.
+   *
+   * Merging, not replacing: a file compiled by several projects keeps every
+   * project's include dirs and defines, which is what makes regenerating one
+   * project of a hundred useful. Where the file lives is the accuracy knob --
+   * one beside a .vcxproj only ever sees that project.
+   */
+  const runGenerate = (targets: string[], outputPath: string, label: string) => {
+    if (!config || !solutionPath) return
+    const msbuild = config.msbuild.compileCommands || config.msbuild.build
+    const controller = new AbortController()
+    generating.current = controller
+    setBuilding(`compile_commands.json ${label}`)
+    setLog([`generating compile_commands.json for ${label} (${configuration}|${platform})`,
+      `output: ${outputPath}`])
+    const append = (line: string) => setLog((previous) => [...previous, line])
+
+    void (async () => {
+      try {
+        const toolchain = await resolveToolchain(msbuild, platform)
+        const result = await generate({
+          msbuild,
+          projects: targets,
+          solutionDir: dirname(solutionPath),
+          configuration,
+          platform,
+          toolchain,
+          onProgress: append,
+          signal: controller.signal,
+        })
+
+        // A database another tool wrote is read too; anything unparseable throws
+        // rather than being replaced, because we are about to overwrite it.
+        let existing: ReturnType<typeof parse> = []
+        try {
+          existing = parse(await readFile(outputPath, 'utf8'))
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+        }
+        const merged = merge(existing, result.commands)
+        // A typed path may name a directory that is not there yet; the picker
+        // showed exactly what would be written, so create it rather than failing.
+        await mkdir(dirname(outputPath), { recursive: true })
+        await writeFile(outputPath, serialize(merged), 'utf8')
+
+        // A cancelled or partly failed run still wrote something useful: under
+        // the accumulate model a partial generation is a valid increment.
+        const done = targets.length - result.failed.length
+        const failed = result.failed.length > 0 ? ` (${result.failed.length} failed)` : ''
+        append(`wrote ${merged.length} entries to ${outputPath}`)
+        say(
+          `${result.cancelled ? 'cancelled: ' : ''}merged ${done} project${done === 1 ? '' : 's'} into ${outputPath}${failed}`,
+          result.failed.length > 0,
+        )
+      } catch (e) {
+        fail(e)
+      } finally {
+        generating.current = null
+        setBuilding(null)
+      }
+    })()
+  }
+
+  /**
+   * Where a typed path lands. Relative paths resolve against the directory setui
+   * was launched with, and a path that is not a .json file is taken as a
+   * directory to put the database in, which is the usual thing to type.
+   */
+  const outputPath = (typed: string) => {
+    const path = resolve(searchRoot, typed.trim())
+    return path.toLowerCase().endsWith('.json') ? path : join(path, 'compile_commands.json')
+  }
+
+  const choiceFor = (path: string) => ({
+    label: `${existsSync(path) ? 'merge into' : 'create'}  ${path}`,
+    value: path,
+  })
+
+  /**
+   * Picks the database to write. The list is a convenience for merging into one
+   * that already exists; anything can be typed instead, and the typed path shows
+   * up as the last choice so what will be written is never a surprise.
+   */
+  const chooseOutput = (then: (path: string) => void) => {
+    if (!solutionPath) return
+    const beside = join(dirname(solutionPath), 'compile_commands.json')
+    void (async () => {
+      const found = await findFiles(searchRoot, 'compile_commands.json').catch(() => [])
+      setOverlay({
+        type: 'select',
+        title: 'compile_commands.json — or type any path',
+        items: [
+          choiceFor(beside),
+          ...found
+            .filter((f) => f.toLowerCase() !== beside.toLowerCase())
+            .map((f) => ({ label: `merge into  ${f}`, value: f })),
+        ],
+        freeText: (typed) => choiceFor(outputPath(typed)),
+        pick: (value) => {
+          setOverlay(null)
+          then(value)
+        },
+      })
+    })()
+  }
+
+  const startCompileCommands = () => {
+    if (!solution || !solutionPath || !config) return
+    // setui runs on macOS; only this feature cannot. Say so rather than hiding
+    // the key, because a key that silently does nothing is worse.
+    if (process.platform !== 'win32') {
+      return say('compile_commands.json generation needs Windows and MSBuild 17.8+', true)
+    }
+    if (running.current) return say('a build is already running')
+    if (generating.current) return say('compile_commands.json is already generating')
+    if (!config.msbuild.compileCommands && !config.msbuild.build) {
+      return say(`set "msbuild" in ${configPath ?? CONFIG_PATH} first (press ,)`, true)
+    }
+
+    const all = projectPaths()
+    const entry = current ? solution.projects.find((p) => p.guid === current.guid) : undefined
+    const project = entry && !entry.isFolder ? entry : undefined
+    setOverlay({
+      type: 'select',
+      title: 'generate compile_commands.json',
+      // The cursor's context leads: on a project, regenerating just that one is
+      // the common case and sits under the cursor already.
+      items: [
+        ...(project ? [{ label: `this project (${project.name})`, value: project.guid }] : []),
+        { label: `whole solution (${all.length} projects)`, value: ALL_PROJECTS },
+      ],
+      pick: (value) => {
+        setOverlay(null)
+        const whole = value === ALL_PROJECTS
+        chooseOutput((output) =>
+          runGenerate(
+            whole ? all : projectPaths(value),
+            output,
+            whole ? basename(solutionPath) : (project?.name ?? ''),
+          ),
+        )
+      },
+    })
   }
 
   /** Returns to the solution list, discovering one if we opened a .sln directly. */
@@ -542,6 +735,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       if (input === 'q') {
         cancelled.current = true
         running.current?.kill()
+        generating.current?.abort()
         return exit()
       }
       if (input === 'o') {
@@ -556,6 +750,12 @@ export function App({ start, configPath }: { start: string; configPath?: string 
           cancelled.current = true
           running.current.kill()
           return say('cancelling the build...')
+        }
+        if (generating.current) {
+          // Whatever has been extracted so far is still merged and written: a
+          // partial generation is a valid increment, not wasted work.
+          generating.current.abort()
+          return say('cancelling, keeping what was extracted...')
         }
         if (log.length > 0) {
           setLog([])
@@ -574,6 +774,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
       if (input === 'b') return runBuild('Build')
       if (input === 'B') return runBuild('Rebuild')
       if (input === 'c') return runBuild('Clean')
+      if (input === 'C') return startCompileCommands()
       if (input === 'p') {
         return setOverlay({
           type: 'select',
@@ -729,13 +930,13 @@ export function App({ start, configPath }: { start: string; configPath?: string 
           type: 'select',
           title: `Move ${current.label} to`,
           items: [
-            { label: '(no filter)', value: ' ' },
+            { label: '(no filter)', value: '\0' },
             ...project.filters.map((f) => ({ label: f.path, value: f.path })),
           ],
           pick: (value) => {
             setOverlay(null)
             commit(() => {
-              project.moveToFilter(current.path, value === ' ' ? null : value)
+              project.moveToFilter(current.path, value === '\0' ? null : value)
               say('moved')
             })
           },
@@ -800,7 +1001,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
   if (!solution) {
     if (!solutions) return <Text>searching for solutions...</Text>
     if (solutions.length === 0) {
-      return <Text color="red">no .sln files found under {start}</Text>
+      return <Text color="red">no .sln files found under {searchRoot}</Text>
     }
     return (
       <SelectList
@@ -809,7 +1010,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
         // terminal makes Ink repaint the whole screen every keystroke (a
         // clearTerminal on Windows), which flickers under multiplexers.
         rows={Math.max(1, termRows - 5)}
-        items={solutions.map((p) => ({ label: p.startsWith(start) ? p.slice(start.length + 1) : p, value: p }))}
+        items={solutions.map((p) => ({ label: relative(searchRoot, p) || p, value: p }))}
         onPick={setSolutionPath}
         onCancel={exit}
       />
@@ -886,6 +1087,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
           title={overlay.title}
           items={overlay.items}
           rows={Math.max(1, overlayRows - 4)}
+          freeText={overlay.freeText}
           onPick={overlay.pick}
           onCancel={() => setOverlay(null)}
         />

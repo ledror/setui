@@ -18,12 +18,14 @@ src/core/            pure library, no Ink, no React, no spawning
   project.ts         the Project facade: files, filters, references, save()
   itemTypes.ts       extension -> MSBuild item element, None fallback
   build.ts           the msbuild argv, and commandLine() for display
+  compileCommands.ts tokenize, absolutize, merge and serialize the JSON database
 src/tui/             the Ink app; owns every disk side effect and every spawn
   app.tsx            the whole UI: tree, overlays, keymap, build pane
   tree.ts            buildRows(): the flat row list the renderer windows into
   build.ts           spawns msbuild; wrapLines() for the output views
+  compileCommands.ts vswhere, cl.exe, the design-time build, per-project extraction
   config.ts          ~/.setui.json
-  discover.ts        finding .sln files
+  discover.ts        finding .sln and compile_commands.json files
   textInput.ts       pure line-editing reducer used by the prompts
   icons.ts           generated nerd-font table; edit by hand, do not regenerate
   devtools-stub.ts   bundle-only stand-in for Ink's optional devtools import
@@ -80,12 +82,35 @@ things it must keep doing:
 - **Always pass `configPath`.** `App` takes it so tests never read or create the
   developer's real `~/.setui.json`.
 - **Let each keystroke land.** Use the `press()` helper; two keys written in one
-  tick are handled against stale state.
+  tick are handled against stale state. `press()` waits for the frame to stop
+  changing, not for a fixed sleep — a keystroke can start async work (expanding a
+  project reads two files from disk), and a fixed delay raced it into sixteen
+  failures on a slow Windows VM that never appeared on a laptop. When the effect
+  you are asserting is *not* a frame change — a spawned editor writing a file, a
+  discovery walk — use `waitFor()` instead.
 - **Fake msbuild with a shell script.** `fakeMsbuild()` writes a script that records
   its own argv, prints output, and optionally lingers so it can be killed. Assert
   build arguments from *that recorded argv*, not from `buildArgs()`'s return value —
   that is what caught the `:Build` suffix and the cancel-hangs bug. These tests are
   skipped on win32.
+
+### The suite runs one file at a time
+
+`vitest.config.ts` sets `fileParallelism: false`. `openInEditor` spawns the editor
+with `stdio: 'inherit'`, which only works when the suite owns the process stdio;
+with files in parallel workers that spawn silently does nothing, so those tests
+fail **only in a full run** and pass on their own. Serial is also faster here — the
+corpus tests already saturate the machine.
+
+### Both platforms must be green
+
+The skips run in both directions now:
+
+- `tests/app.test.tsx` — the build tests skip **on** win32.
+- `tests/extract.test.ts` — everything that runs MSBuild skips **off** win32.
+
+So `npm test` must pass on macOS *and* on Windows. Green on only one is not green,
+and a skipped file is not a broken one.
 
 ## Commands
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { render } from 'ink-testing-library'
@@ -6,6 +6,7 @@ import React from 'react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../src/tui/app.js'
 import { startBuild } from '../src/tui/build.js'
+import { vswhere } from '../src/tui/compileCommands.js'
 import { FILTERS, VCXPROJ_FULL } from './helpers/fixture.js'
 
 const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
@@ -59,11 +60,41 @@ function scenario(opts: { msbuild?: string; msbuildArgs?: string | string[] } = 
 
 const settle = (ms = 80) => new Promise((r) => setTimeout(r, ms))
 
-/** Types keys one at a time, letting each one land before the next. */
-async function press(app: { stdin: { write: (s: string) => void } }, ...keys: string[]) {
+/**
+ * Types keys one at a time, letting each one land before the next.
+ *
+ * "Landed" means the frame has stopped changing, not that a fixed sleep elapsed.
+ * A keystroke can kick off async work -- expanding a project reads the .vcxproj
+ * and its .filters from disk -- and a fixed 40ms raced that on any machine slow
+ * enough, which failed sixteen tests on a Windows VM while passing on a laptop.
+ * Waiting for quiet is fast where the work is fast and patient where it is not.
+ */
+async function press(app: Rendered, ...keys: string[]) {
   for (const k of keys) {
     app.stdin.write(k)
-    await settle(40)
+    await quiet(app)
+  }
+}
+
+interface Rendered {
+  stdin: { write: (s: string) => void }
+  lastFrame: () => string | undefined
+}
+
+/** Resolves once the frame has held still for `idle`, or when `timeout` runs out. */
+async function quiet(app: Rendered, idle = 100, timeout = 8000) {
+  const deadline = Date.now() + timeout
+  let last = app.lastFrame()
+  let since = Date.now()
+  while (Date.now() < deadline) {
+    await settle(20)
+    const now = app.lastFrame()
+    if (now !== last) {
+      last = now
+      since = Date.now()
+    } else if (Date.now() - since >= idle) {
+      return
+    }
   }
 }
 
@@ -156,10 +187,10 @@ describe('going back to the solution list', () => {
     await settle()
     expect(app.lastFrame()).toContain('Demo.sln')
     await press(app, '-')
-    await settle(200)
-    const frame = app.lastFrame() ?? ''
-    expect(frame).toContain('Solutions')
-    expect(frame).toContain('Demo.sln')
+    // Going back rediscovers the solutions, which spawns fd or rg. The frame
+    // holds still while that runs, so waiting for quiet is not enough here.
+    await waitFor(() => (app.lastFrame() ?? '').includes('Solutions'))
+    expect(app.lastFrame()).toContain('Demo.sln')
     app.unmount()
   })
 
@@ -193,7 +224,9 @@ describe('opening things in the editor', () => {
     const { dir, app } = open()
     await settle()
     await press(app, 'e')
-    await settle(300)
+    // The editor is a spawned process writing a file; the frame never changes
+    // while it runs, so this waits on the effect rather than on a sleep.
+    await waitFor(() => existsSync(join(dir, 'Demo.vcxproj.opened')))
     expect(existsSync(join(dir, 'Demo.vcxproj.opened'))).toBe(true)
     app.unmount()
   })
@@ -204,8 +237,10 @@ describe('opening things in the editor', () => {
     // Expand the project, then step down to the first unfiltered file.
     await press(app, ENTER, 'j', 'j', 'j', 'j')
     await press(app, 'e')
-    await settle(300)
-    expect(existsSync(join(dir, 'main.h.opened')) || existsSync(join(dir, 'util.c.opened'))).toBe(true)
+    const opened = () =>
+      existsSync(join(dir, 'main.h.opened')) || existsSync(join(dir, 'util.c.opened'))
+    await waitFor(opened)
+    expect(opened()).toBe(true)
     app.unmount()
   })
 })
@@ -532,6 +567,31 @@ function fakeMsbuild(dir: string, { linger }: { linger: boolean }) {
 }
 
 const onUnix = process.platform === 'win32' ? describe.skip : describe
+const onWindows = process.platform === 'win32' ? describe : describe.skip
+
+/** A minimal but real C++ project, for the one test that runs MSBuild for real. */
+const SOLO_VCXPROJ = `<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{11111111-1111-1111-1111-111111111111}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />
+</Project>
+`
 
 onUnix('running a build', () => {
   it('passes no :Build suffix for a plain build', async () => {
@@ -941,4 +1001,183 @@ describe('frame height', () => {
       app.unmount()
     }, 20_000)
   }
+})
+
+describe('generating compile_commands.json', () => {
+  /** A scenario with a configured msbuild and two databases already on disk. */
+  const withDatabases = () => {
+    const s = scenario({ msbuild: 'C:\\msbuild.exe' })
+    writeFileSync(join(s.dir, 'compile_commands.json'), '[]', 'utf8')
+    // A second one further down the tree, the way a repo of several solutions
+    // ends up with one database per solution.
+    mkdirSync(join(s.dir, 'other'), { recursive: true })
+    writeFileSync(join(s.dir, 'other', 'compile_commands.json'), '[]', 'utf8')
+    const app = render(<App start={s.sln} configPath={s.configPath} />)
+    return { ...s, app }
+  }
+
+  it('offers the key in help', async () => {
+    const { app } = open()
+    await settle()
+    await press(app, '?')
+    expect(app.lastFrame()).toContain('generate compile_commands.json')
+    app.unmount()
+  })
+
+  // Everything below opens the scope and path overlays, which
+  // startCompileCommands refuses to do off Windows. Off Windows they fail;
+  // worse, the two negative ones passed against the wrong refusal message.
+  onWindows('the overlays', () => {
+    it('asks whether to do this project or the whole solution', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C')
+      const frame = app.lastFrame() ?? ''
+      // On a project row, regenerating just that project leads: it is the common
+      // case and it is already under the cursor.
+      expect(frame).toContain('this project (Demo)')
+      expect(frame).toContain('whole solution (2 projects)')
+      app.unmount()
+    })
+
+    it('escapes out of the scope overlay leaving the tree alone', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ESC)
+      const frame = app.lastFrame() ?? ''
+      expect(frame).not.toContain('whole solution')
+      expect(frame).toContain('Demo')
+      app.unmount()
+    })
+
+    it('then lists every compile_commands.json it can merge into', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      const frame = app.lastFrame() ?? ''
+      // The one beside the solution comes first as the default, and it already
+      // exists here, so it offers to merge rather than create.
+      expect(frame).toContain('merge into')
+      expect(frame).toContain(join('other', 'compile_commands.json'))
+      app.unmount()
+    })
+
+    it('offers whatever path is typed, even when nothing in the list matches', async () => {
+      // The list is a convenience for merging into a database that exists. Typing
+      // a path used to filter the list to nothing and leave no way forward.
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'D:\\somewhere\\new.json') app.stdin.write(ch)
+      await settle(200)
+      const frame = app.lastFrame() ?? ''
+      expect(frame).toContain('create')
+      expect(frame).toContain(join('D:\\somewhere', 'new.json'))
+      app.unmount()
+    })
+
+    it('names the database for you when a directory is typed', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'D:\\somewhere') app.stdin.write(ch)
+      await settle(200)
+      expect(app.lastFrame()).toContain(join('D:\\somewhere', 'compile_commands.json'))
+      app.unmount()
+    })
+
+    it('resolves a relative path against the directory setui was launched with', async () => {
+      const { dir, app } = withDatabases()
+      await settle()
+      await press(app, 'C', ENTER)
+      await waitFor(() => (app.lastFrame() ?? '').includes('compile_commands.json'))
+      for (const ch of 'build') app.stdin.write(ch)
+      await settle(200)
+      expect(app.lastFrame()).toContain(join(dir, 'build', 'compile_commands.json'))
+      app.unmount()
+    })
+
+    it('refuses when msbuild is not configured, before asking anything', async () => {
+      const { app } = open()
+      await settle()
+      await press(app, 'C')
+      expect(app.lastFrame()).toMatch(/msbuild/i)
+      expect(app.lastFrame() ?? '').not.toContain('whole solution')
+      app.unmount()
+    })
+  })
+
+  // setui runs on macOS; only this feature cannot. The key still exists and
+  // still answers, because a key that silently does nothing is worse.
+  onUnix('off Windows', () => {
+    it('says the feature needs Windows and opens nothing', async () => {
+      const { app } = withDatabases()
+      await settle()
+      await press(app, 'C')
+      const frame = app.lastFrame() ?? ''
+      expect(frame).toMatch(/needs Windows/i)
+      expect(frame).not.toContain('whole solution')
+      app.unmount()
+    })
+  })
+
+  // The whole path, for real: two overlays, a design-time build, and a database
+  // on disk. Everything above stops before MSBuild runs, so without this nothing
+  // proves the pieces are actually wired to each other.
+  onWindows('end to end', () => {
+    it('writes a database for the project under the cursor', async (ctx) => {
+      const msbuild = (
+        await vswhere('-latest', '-products', '*', '-find', 'MSBuild\\**\\Bin\\MSBuild.exe')
+      )[0]
+      // A Windows box without the C++ workload. Skip rather than return: a test
+      // that returns early reports as passed while asserting nothing.
+      if (!msbuild) return ctx.skip()
+
+      const dir = mkdtempSync(join(tmpdir(), 'setui-ccgen-'))
+      writeFileSync(join(dir, 'main.cpp'), 'int main(){return 0;}\n', 'utf8')
+      writeFileSync(join(dir, 'Solo.vcxproj'), SOLO_VCXPROJ, 'utf8')
+      const sln = join(dir, 'Solo.sln')
+      writeFileSync(
+        sln,
+        '\uFEFF' +
+          [
+            'Microsoft Visual Studio Solution File, Format Version 12.00',
+            `Project("${CPP}") = "Solo", "Solo.vcxproj", "${DEMO}"`,
+            'EndProject',
+            'Global',
+            '\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',
+            '\t\tDebug|x64 = Debug|x64',
+            '\tEndGlobalSection',
+            'EndGlobal',
+          ].join('\r\n') +
+          '\r\n',
+        'utf8',
+      )
+      const configPath = join(dir, 'config.json')
+      writeFileSync(configPath, JSON.stringify({ msbuild: { build: msbuild } }), 'utf8')
+
+      const app = render(<App start={sln} configPath={configPath} />)
+      await settle(300)
+      await press(app, 'C') // scope: this project is first, under the cursor
+      await press(app, ENTER)
+      // The default is a database beside the solution, which does not exist yet.
+      await waitFor(() => (app.lastFrame() ?? '').includes('create'))
+      await press(app, ENTER)
+
+      const output = join(dir, 'compile_commands.json')
+      await waitFor(() => existsSync(output), 90_000)
+      await waitFor(() => (app.lastFrame() ?? '').includes('merged 1 project'), 30_000)
+
+      const entries = JSON.parse(readFileSync(output, 'utf8'))
+      expect(entries).toHaveLength(1)
+      expect(entries[0].file.toLowerCase()).toBe(join(dir, 'main.cpp').toLowerCase())
+      // The real compiler, not the C:\WINDOWS\system32\CL.exe MSBuild reports.
+      expect(existsSync(entries[0].arguments[0])).toBe(true)
+      expect(entries[0].arguments.at(-1)).toBe(entries[0].file)
+      app.unmount()
+    }, 180_000)
+  })
 })

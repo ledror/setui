@@ -40,15 +40,30 @@ On first run it writes `~/.setui.json`:
 
 ```json
 {
-  "msbuild": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+  "msbuild": {
+    "build": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+    "compileCommands": ""
+  },
   "editor": "code -w",
   "logLines": 15,
   "msbuildArgs": "/v:m /nodeReuse:false"
 }
 ```
 
-Fill in `msbuild` — build, rebuild and clean stay disabled until you do. Press `,`
-inside setui to open the config in your editor, and `R` to reload.
+Fill in `msbuild.build` — build, rebuild and clean stay disabled until you do. Press
+`,` inside setui to open the config in your editor, and `R` to reload.
+
+`msbuild.compileCommands` is the MSBuild used by `C` to generate
+`compile_commands.json`. Leave it empty to use `msbuild.build`. It is separate
+because generation reads `-getTargetResult`, which landed in MSBuild 17.8: VS 2019
+ships 16.x and can never do it, while the MSBuild that builds your solution is often
+exactly that older one. If the one in use is too old, `C` says so and names this key.
+
+The older string form still works and still means the build MSBuild:
+
+```json
+"msbuild": "C:\\...\\MSBuild.exe"
+```
 
 `logLines` is how much build output stays on screen (default 15, clamped to 3-60);
 `o` opens the whole log full-screen regardless.
@@ -90,6 +105,7 @@ f                 new filter (nested filters allowed)
 r                 rename a file or a filter
 m                 move a file to another filter
 b B c             build / rebuild / clean
+C                 generate compile_commands.json (this project, or the solution)
 p                 pick Configuration|Platform
 o                 toggle the full build log (wraps, and follows new output)
 esc               cancel the build, then hide its output, then clear search
@@ -102,6 +118,43 @@ Inside the full-screen build log (`o`): `j k` and the arrows scroll, `ctrl+u ctr
 and `PgUp PgDn` page, `g G` jump to the start and end. It follows new output as it
 arrives until you scroll up, and starts following again when you get back to the
 bottom; the header says which it is doing.
+
+## compile_commands.json
+
+`C` generates a [clang compilation database][db] so clangd and friends can index a
+Visual Studio C++ solution. It asks what to generate — the project under the cursor,
+or every project in the solution — and then where to write it. It uses the
+`Configuration|Platform` shown in the header, runs about a second per project, and
+prints a line each. `esc` stops it and keeps what was extracted.
+
+The output list is a convenience: it shows every `compile_commands.json` beneath the
+directory setui was launched with, so merging into one you already have is one
+keypress. **You can also just type a path** — anything you type is offered as the
+last choice, showing the exact file it will write, so nothing is a surprise. A
+relative path resolves against the launch directory, a path that is not a `.json`
+file is taken as a directory to put the database in, and missing directories are
+created.
+
+[db]: https://clang.llvm.org/docs/JSONCompilationDatabase.html
+
+**It merges rather than replaces.** Regenerating one project after adding a few
+files updates that project's entries and leaves every other project's alone. Where
+several projects compile the same source — a shared core project, say — that file's
+entry accumulates the include directories and defines of all of them, so one
+database can cross-reference a whole repository at once.
+
+That accumulation is the trade: an entry can carry a flag some *other* project
+passed. If you want an exactly accurate database for one project, write it next to
+that project's `.vcxproj` — the output path is the accuracy knob. And because
+entries only ever grow, a *deleted* source file can only be removed by generating
+into a fresh file.
+
+Generation is Windows-only and needs MSBuild 17.8+ (see `msbuild.compileCommands`
+above). Everything else in setui works fine without it.
+
+A project that does not define the selected `Configuration|Platform` is reported and
+skipped rather than stopping the run; so is one with no C or C++ sources, which is
+what a driver package project looks like.
 
 ## What it will not do
 

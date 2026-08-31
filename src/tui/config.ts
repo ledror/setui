@@ -2,9 +2,21 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir, platform } from 'node:os'
 import { dirname, join } from 'node:path'
 
-export interface Config {
+export interface MsBuildPaths {
   /** Full path to MSBuild.exe. Empty until the user fills it in. */
-  msbuild: string
+  build: string
+  /**
+   * MSBuild used to generate compile_commands.json. Empty means "use `build`".
+   *
+   * These are separate because `-getTargetResult`, which the generation reads,
+   * landed in MSBuild 17.8. VS 2019 ships 16.x and can never do it, and the
+   * MSBuild that builds a driver is very often that older one.
+   */
+  compileCommands: string
+}
+
+export interface Config {
+  msbuild: MsBuildPaths
   /** Command used to open files; may include arguments, e.g. "code -w". */
   editor: string
   /** Lines of build output kept on screen. `o` opens the whole log full-screen. */
@@ -22,7 +34,7 @@ export const CONFIG_PATH = join(homedir(), '.setui.json')
 const defaultEditor = () => process.env['VISUAL'] ?? process.env['EDITOR'] ?? (platform() === 'win32' ? 'notepad' : 'vim')
 
 const blank = (): Config => ({
-  msbuild: '',
+  msbuild: { build: '', compileCommands: '' },
   editor: defaultEditor(),
   logLines: DEFAULT_LOG_LINES,
   msbuildArgs: [],
@@ -53,10 +65,32 @@ export async function loadConfig(path = CONFIG_PATH): Promise<Config> {
   }
   const record = (parsed ?? {}) as Partial<Config>
   return {
-    msbuild: typeof record.msbuild === 'string' ? record.msbuild : '',
+    msbuild: parseMsBuild((parsed as { msbuild?: unknown }).msbuild),
     editor: typeof record.editor === 'string' && record.editor ? record.editor : defaultEditor(),
     logLines: clampLines(record.logLines),
     msbuildArgs: parseArgs((parsed as { msbuildArgs?: unknown }).msbuildArgs),
+  }
+}
+
+/**
+ * Accepts either form:
+ *
+ *   "msbuild": "C:\\...\\MSBuild.exe"
+ *   "msbuild": { "build": "...", "compileCommands": "..." }
+ *
+ * The string form is what every config written before compile_commands.json
+ * existed looks like, and it still means what it always meant. Nobody's config
+ * breaks, and nothing is rewritten on their behalf -- the file is the user's.
+ */
+function parseMsBuild(value: unknown): MsBuildPaths {
+  if (typeof value === 'string') return { build: value, compileCommands: '' }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { build: '', compileCommands: '' }
+  }
+  const record = value as { build?: unknown; compileCommands?: unknown }
+  return {
+    build: typeof record.build === 'string' ? record.build : '',
+    compileCommands: typeof record.compileCommands === 'string' ? record.compileCommands : '',
   }
 }
 

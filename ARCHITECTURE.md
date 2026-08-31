@@ -165,6 +165,44 @@ would strand the UI mid-build.
 - **Every removal is confirmed** — including ones that only edit the project file
   and leave the source on disk. A stray keypress must never cost someone work.
 
+## compile_commands.json
+
+`C` generates a clang compilation database for one project or a whole solution and
+**merges** it into a database the user picks.
+
+Extraction is a design-time build per project: `MSBuild.exe /t:GetClCommandLines`
+with `-getTargetResult` and `-getResultOutputFile`, which prints the target's items
+as JSON to a file. That needs MSBuild 17.8+, which VS 2019 does not have, so the
+config carries two MSBuild paths — one to build with, one to extract with. Nothing
+is compiled and nothing is written to the project tree.
+
+Three facts about that output shape the code:
+
+- **Its command lines are relative.** 55 of 55 `/I` values in the corpus are, and
+  some are root-relative (`\ks`). A database mixes many projects under one
+  `directory`, so every path-bearing flag is resolved to an absolute path at
+  extraction time, with `path.win32` — never the platform-default `path`, which on
+  macOS reads `..\..\inc` as one filename and makes every test vacuous.
+- **Its `ToolPath` is `C:\WINDOWS\system32\CL.exe`,** which does not exist. The real
+  compiler is resolved through `vswhere`.
+- **The include directories cl gets from `INCLUDE`** are not in the command line at
+  all; they come from `GetProjectDirectories` and are appended as `/I`, because a
+  compilation database has no way to express an environment variable.
+
+Merging **accumulates**: `/I`, `/external:I`, `/FI` and `/D` from every generation
+that touched a file are unioned (macros keyed by name, first writer winning, so the
+result does not depend on generation order); everything else comes from the most
+recent one. A source compiled by a hundred projects therefore keeps all hundred
+sets of flags, which is what makes regenerating a single project useful and is the
+deliberate trade: an entry can carry flags the project you last generated does not
+use. Accuracy is controlled by *where the output file lives* — a database beside one
+`.vcxproj` only ever sees that project. Entries only ever grow, so a deleted source
+file needs a generation into a fresh file.
+
+Unlike `.vcxproj` and `.vcxproj.filters`, `compile_commands.json` is **ours, not the
+user's**: it is generated, written whole, sorted by file, and exempt from the splice
+and byte-preservation rules above.
+
 ## Distribution
 
 `npm run bundle` (see `build.mjs`) produces a single `dist/setui.js` that runs under
@@ -210,9 +248,12 @@ otherwise opening a dialog pushes the header off the top and the view jumps.
 ## No persistence
 
 `setui` is stateless between runs: no cache, no session file, nothing written beside
-the user's sources. The only state is `~/.setui.json` — `msbuild`, `editor`,
-`logLines`, `msbuildArgs` — and it is never written by setui after it is created
-empty on first run.
+the user's sources. The only state is `~/.setui.json` — `msbuild` (`build` and
+`compileCommands`), `editor`, `logLines`, `msbuildArgs` — and it is never written by
+setui after it is created empty on first run. `msbuild` also accepts the bare string
+every config written before `compile_commands.json` existed uses; it is read as
+`build`, and the file is not rewritten to the newer shape, for the same reason
+invalid JSON is reported rather than replaced.
 
 Which configuration a solution opens with is therefore derived, not remembered: sort
 the configurations and platforms, take the first containing `debug` and the first
