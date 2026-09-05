@@ -8,9 +8,9 @@ export interface MsBuildPaths {
   /**
    * MSBuild used to generate compile_commands.json. Empty means "use `build`".
    *
-   * These are separate because `-getTargetResult`, which the generation reads,
-   * landed in MSBuild 17.8. VS 2019 ships 16.x and can never do it, and the
-   * MSBuild that builds a driver is very often that older one.
+   * These are separate because generation needs the C++ design-time targets, and
+   * the MSBuild that builds a driver is very often an older or narrower one that
+   * does not have them.
    */
   compileCommands: string
 }

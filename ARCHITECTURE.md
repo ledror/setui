@@ -170,11 +170,26 @@ would strand the UI mid-build.
 `C` generates a clang compilation database for one project or a whole solution and
 **merges** it into a database the user picks.
 
-Extraction is a design-time build per project: `MSBuild.exe /t:GetClCommandLines`
-with `-getTargetResult` and `-getResultOutputFile`, which prints the target's items
-as JSON to a file. That needs MSBuild 17.8+, which VS 2019 does not have, so the
-config carries two MSBuild paths — one to build with, one to extract with. Nothing
-is compiled and nothing is written to the project tree.
+Extraction is a design-time build per project. Its results do **not** come back
+through `-getTargetResult`: MSBuild's JSON formatter asks every returned item for
+`%(FullPath)`, and a `ClCommandLines` item's spec is a cl command line rather than
+a path, so every MSBuild through 17.14 — which is every Visual Studio 2022 — answers
+with `MSB1025` and an unhandled `InvalidOperationException`, *after* the build
+itself printed "Build succeeded". VS 2026's MSBuild is the first that does not.
+
+So the results never reach that formatter. setui writes a temporary `.targets`
+file, injects it with `/p:ForceImportAfterCppTargets`, and the one target it adds
+writes `@(ClCommandLines)` and `@(_ProjectDirectories)` itself with
+`WriteLinesToFile`, in a `|`-separated format setui parses. `|` is the separator
+because it cannot occur in a Windows path; `;` cannot be, because it is MSBuild's
+own list separator and appears *inside* the `Files` field. The command line is the
+last field, so a `|` in a switch is joined back on instead of ending the record. Nothing is compiled and nothing is written to the project tree.
+
+The config still carries two MSBuild paths — one to build with, one to extract
+with — because the MSBuild that builds a driver is often an older or narrower one
+without the C++ design-time targets. There is no version gate: the targets ship
+with the VC toolset rather than with `MSBuild.exe`, so no version number reports
+them, and an MSBuild without them says so itself, per project.
 
 Three facts about that output shape the code:
 

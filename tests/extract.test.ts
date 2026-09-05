@@ -8,8 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   extractProject,
   generate,
+  parseExtractOutput,
   resolveToolchain,
-  supportsTargetResults,
   vswhere,
 } from '../src/tui/compileCommands.js'
 import type { ToolchainInfo } from '../src/core/compileCommands.js'
@@ -17,30 +17,75 @@ import type { ToolchainInfo } from '../src/core/compileCommands.js'
 const run = promisify(execFile)
 
 /**
- * The version gate is pure, so it is checked everywhere. `-getTargetResult` landed
- * in MSBuild 17.8; VS 2019 ships 16.x and can never do this, which is why the
- * build MSBuild and the extraction MSBuild are configured separately.
+ * The design-time build writes its own results, in a format setui defines, rather
+ * than through `-getTargetResult`.
+ *
+ * `-getTargetResult` cannot express them at all: MSBuild's JSON formatter asks
+ * every returned item for `%(FullPath)`, and a `ClCommandLines` item's spec is a
+ * cl command line, not a path. MSBuild 17.14 answers that with MSB1025 and an
+ * unhandled InvalidOperationException *after* printing "Build succeeded" -- and
+ * 17.14 is what a current Visual Studio 2022 install has.
+ *
+ * The parser is pure, so it is checked on both platforms.
  */
-describe('supportsTargetResults', () => {
-  it('rejects the MSBuild that ships with VS 2019', () => {
-    expect(supportsTargetResults('16.11.2.50704')).toBe(false)
+describe('parseExtractOutput', () => {
+  const CL =
+    'CL|C:\\p\\a.cpp;C:\\p\\b.cpp|C:\\p|C:\\WINDOWS\\system32\\CL.exe|/c /I..\\shared /D FOO=1'
+
+  it('reads one record per command line', () => {
+    const { items } = parseExtractOutput(`${CL}\r\n`)
+    expect(items).toEqual([
+      {
+        Identity: '/c /I..\\shared /D FOO=1',
+        // Several sources share one command line, so this field is a list, and it
+        // is written unsplit: the record separator is `|`, not `;`.
+        Files: 'C:\\p\\a.cpp;C:\\p\\b.cpp',
+        WorkingDirectory: 'C:\\p',
+        ToolPath: 'C:\\WINDOWS\\system32\\CL.exe',
+      },
+    ])
   })
 
-  it('rejects an early VS 2022', () => {
-    expect(supportsTargetResults('17.7.9')).toBe(false)
+  it('keeps a pipe inside the command line', () => {
+    // `|` is illegal in a Windows path and legal in a cl switch, which is why the
+    // command line is the last field and everything past the fourth is joined back
+    // on. A plain five-way split would truncate this one to `/D X="a`.
+    const { items } = parseExtractOutput('CL|C:\\p\\a.cpp|C:\\p|cl.exe|/c /D X="a|b" /D Y=2')
+    expect(items[0]!.Identity).toBe('/c /D X="a|b" /D Y=2')
   })
 
-  it('accepts the version the feature was introduced in', () => {
-    expect(supportsTargetResults('17.8.0')).toBe(true)
+  it('reads the project directories, dropping the empty entries MSBuild leaves', () => {
+    // The doubled semicolons are real: $(IncludePath) is assembled out of
+    // properties that are routinely empty.
+    const { dirs } = parseExtractOutput('DIR|C:\\inc;;C:\\ucrt;|C:\\ext;|C:\\p\\')
+    expect(dirs).toEqual({
+      includePath: ['C:\\inc', 'C:\\ucrt'],
+      externalIncludePath: ['C:\\ext'],
+      projectDir: 'C:\\p\\',
+    })
   })
 
-  it('accepts a later major', () => {
-    expect(supportsTargetResults('18.9.1.35102')).toBe(true)
+  it('has no directories when the target wrote no DIR record', () => {
+    const { items, dirs } = parseExtractOutput(CL)
+    expect(items).toHaveLength(1)
+    expect(dirs).toEqual({ includePath: [], externalIncludePath: [], projectDir: '' })
   })
 
-  it('rejects output it cannot make sense of', () => {
-    expect(supportsTargetResults('')).toBe(false)
-    expect(supportsTargetResults('MSBuild is not recognized')).toBe(false)
+  it('reads a first record that arrived behind a byte order mark', () => {
+    // WriteLinesToFile writes none today. If that ever changes, the record it
+    // would swallow is the one carrying the system include directories, and the
+    // only symptom is a database that cannot find <windows.h>.
+    const { dirs } = parseExtractOutput('\ufeffDIR|C:\\inc|C:\\ext|C:\\p\\')
+    expect(dirs.includePath).toEqual(['C:\\inc'])
+  })
+
+  it('ignores anything that is not a whole record', () => {
+    // A truncated record must yield nothing rather than an item with an empty
+    // command line, which would put a bare `cl.exe file.cpp` in the database.
+    const { items, dirs } = parseExtractOutput(`CL|C:\\p\\a.cpp|C:\\p\n\n${CL}\nDIR|only\n`)
+    expect(items).toHaveLength(1)
+    expect(items[0]!.Files).toBe('C:\\p\\a.cpp;C:\\p\\b.cpp')
+    expect(dirs.projectDir).toBe('')
   })
 })
 
@@ -90,6 +135,16 @@ const PROJECT = `<?xml version="1.0" encoding="utf-8"?>
 </Project>
 `
 
+/**
+ * The same project with switches that stress the format the injected target
+ * writes: `;` is MSBuild's list separator, `|` is the record separator, and `%`
+ * opens an MSBuild escape. All three are legal inside a cl switch.
+ */
+const NASTY = PROJECT.replace(
+  '<PreprocessorDefinitions>FOO=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>',
+  '<AdditionalOptions>/DSEMI="a;b" /DPIPE="x|y" /DPCT="100%25" %(AdditionalOptions)</AdditionalOptions>',
+)
+
 beforeAll(async () => {
   if (!windows) return
   // Find MSBuild the way a user without any config would have to: via vswhere.
@@ -102,6 +157,7 @@ beforeAll(async () => {
   const dir = join(workspace, 'proj')
   await run('cmd', ['/c', 'mkdir', dir.replace(/\//g, '\\')]).catch(() => {})
   await writeFile(join(workspace, 'proj.vcxproj'), PROJECT, 'utf8')
+  await writeFile(join(workspace, 'nasty.vcxproj'), NASTY, 'utf8')
   await writeFile(join(workspace, 'main.cpp'), 'int main(){return 0;}\n', 'utf8')
   await writeFile(join(workspace, 'other.cpp'), 'int other(){return 1;}\n', 'utf8')
 
@@ -206,6 +262,28 @@ describe.skipIf(!windows)('extractProject', () => {
     for (const command of result.commands) {
       expect(existsSync(command.arguments[0]!)).toBe(true)
       expect(command.arguments.at(-1)).toBe(command.file)
+    }
+  }, 120_000)
+
+  it('keeps switches containing the record separator, a semicolon and a percent', async (ctx) => {
+    if (!canRun()) return ctx.skip()
+    const result = await extractProject({
+      msbuild,
+      projectPath: join(workspace, 'nasty.vcxproj'),
+      solutionDir: workspace,
+      configuration: 'Debug',
+      platform: 'x64',
+      toolchain,
+    })
+    if (!result.ok) throw new Error(result.error)
+    // The target writes one line per command line. A `;` inside a field must not
+    // split the record into two, and a `|` inside the command line must not end
+    // it early -- both would silently drop switches rather than fail.
+    expect(result.commands).toHaveLength(2)
+    for (const command of result.commands) {
+      expect(command.arguments).toContain('/DSEMI=a;b')
+      expect(command.arguments).toContain('/DPIPE=x|y')
+      expect(command.arguments).toContain('/DPCT=100%')
     }
   }, 120_000)
 

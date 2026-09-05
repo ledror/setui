@@ -617,7 +617,7 @@ export function App({ start, configPath }: { start: string; configPath?: string 
     // setui runs on macOS; only this feature cannot. Say so rather than hiding
     // the key, because a key that silently does nothing is worse.
     if (process.platform !== 'win32') {
-      return say('compile_commands.json generation needs Windows and MSBuild 17.8+', true)
+      return say('compile_commands.json generation needs Windows and MSBuild', true)
     }
     if (running.current) return say('a build is already running')
     if (generating.current) return say('compile_commands.json is already generating')
