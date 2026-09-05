@@ -15,7 +15,7 @@ import {
 
 /**
  * 57 real GetClCommandLines items captured from MSBuild 18.9 over 30 random
- * Windows-driver-samples projects. Regenerating it needs Windows and VS 17.8+,
+ * Windows-driver-samples projects. Regenerating it needs Windows and Visual Studio,
  * which is exactly why it is checked in: this whole file runs on macOS.
  */
 const FIXTURE = JSON.parse(

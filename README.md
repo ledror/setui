@@ -55,9 +55,9 @@ Fill in `msbuild.build` — build, rebuild and clean stay disabled until you do.
 
 `msbuild.compileCommands` is the MSBuild used by `C` to generate
 `compile_commands.json`. Leave it empty to use `msbuild.build`. It is separate
-because generation reads `-getTargetResult`, which landed in MSBuild 17.8: VS 2019
-ships 16.x and can never do it, while the MSBuild that builds your solution is often
-exactly that older one. If the one in use is too old, `C` says so and names this key.
+because generation needs the Visual C++ design-time targets, while the MSBuild that
+builds your solution is often an older or narrower one without them. A project that
+MSBuild cannot extract is reported by name, with MSBuild's own error.
 
 The older string form still works and still means the build MSBuild:
 
@@ -149,8 +149,9 @@ that project's `.vcxproj` — the output path is the accuracy knob. And because
 entries only ever grow, a *deleted* source file can only be removed by generating
 into a fresh file.
 
-Generation is Windows-only and needs MSBuild 17.8+ (see `msbuild.compileCommands`
-above). Everything else in setui works fine without it.
+Generation is Windows-only and needs an MSBuild with the Visual C++ design-time
+targets (see `msbuild.compileCommands` above). Everything else in setui works fine
+without it.
 
 A project that does not define the selected `Configuration|Platform` is reported and
 skipped rather than stopping the run; so is one with no C or C++ sources, which is

@@ -25,7 +25,7 @@ export interface CompileCommand {
   arguments: string[]
 }
 
-/** A `GetClCommandLines` item, exactly as MSBuild's `-getTargetResult` JSON has it. */
+/** One `GetClCommandLines` item, as the design-time build reports it. */
 export interface ClCommandLine {
   /** The cl switches, e.g. `/c /I..\common /W4 /D FOO`. */
   Identity: string
